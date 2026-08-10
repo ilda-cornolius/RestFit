@@ -1,0 +1,4 @@
+# Skip configuration for RestFitTests module
+
+#build:
+#  contents:

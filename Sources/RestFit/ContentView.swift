@@ -1,0 +1,528 @@
+import SwiftUI
+
+enum AppTab: String, Hashable, CaseIterable {
+    case home, fast, sleep, meditate, profile
+
+    var title: String {
+        switch self {
+        case .home: "Home"
+        case .fast: "Fast"
+        case .sleep: "Sleep"
+        case .meditate: "Calm"
+        case .profile: "Me"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .home: "house.fill"
+        case .fast: "clock.fill"
+        case .sleep: "moon.fill"
+        case .meditate: "leaf.fill"
+        case .profile: "person.fill"
+        }
+    }
+}
+
+struct ContentView: View {
+    @State private var store = WellnessStore()
+    @State private var selectedTab: AppTab = .home
+    @State private var showLogSleep = false
+    @State private var showAddWeight = false
+    @State private var showOnboarding = false
+
+    var body: some View {
+        Group {
+            if showOnboarding {
+                OnboardingView {
+                    showOnboarding = false
+                }
+            } else {
+                mainApp
+            }
+        }
+        .environment(store)
+        .preferredColorScheme(.dark)
+        .onAppear {
+            showOnboarding = !store.hasCompletedOnboarding
+        }
+        .sheet(isPresented: $showLogSleep) {
+            LogSleepSheet()
+                .environment(store)
+        }
+        .sheet(isPresented: $showAddWeight) {
+            AddWeightSheet()
+                .environment(store)
+        }
+        .task {
+            while !Task.isCancelled {
+                store.tick()
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+
+    private var mainApp: some View {
+        ZStack(alignment: .bottom) {
+            RestFitTheme.canvas.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                tabContent
+                    .frame(maxWidth: 440)
+                    .frame(maxWidth: .infinity)
+            }
+
+            BottomTabBar(selectedTab: $selectedTab)
+                .frame(maxWidth: 440)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    @ViewBuilder
+    private var tabContent: some View {
+        switch selectedTab {
+        case .home:
+            HomeView(onLogSleep: { showLogSleep = true }, onAddWeight: { showAddWeight = true })
+        case .fast:
+            FastingView()
+        case .sleep:
+            SleepView(onLogSleep: { showLogSleep = true })
+        case .meditate:
+            MeditationView()
+        case .profile:
+            ProfileView()
+        }
+    }
+}
+
+struct HomeView: View {
+    @Environment(WellnessStore.self) private var store
+    let onLogSleep: () -> Void
+    let onAddWeight: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                AppHeader(name: store.profile.name)
+
+                WelcomeSection(
+                    greeting: WellnessGuide.greeting(name: store.profile.name),
+                    headline: WellnessGuide.rhythmHeadline(
+                        sleepScores: store.weeklySleepScores,
+                        fastingProgress: store.fastingProgress
+                    )
+                )
+                .padding(.horizontal, 24)
+
+                VStack(spacing: 20) {
+                    FastingStatusCard()
+                    QuickActionsGrid(onLogSleep: onLogSleep, onAddWeight: onAddWeight)
+                    SleepPanel()
+                    WeightPanel()
+
+                    if !store.guidance.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Today's Guidance")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+
+                            ForEach(store.guidance.prefix(3)) { tip in
+                                GuidanceCard(guidance: tip)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+            .padding(.bottom, 120)
+        }
+    }
+}
+
+struct BottomTabBar: View {
+    @Binding var selectedTab: AppTab
+
+    var body: some View {
+        HStack {
+            ForEach(AppTab.allCases, id: \.self) { tab in
+                Button {
+                    selectedTab = tab
+                } label: {
+                    VStack(spacing: 6) {
+                        if selectedTab == tab {
+                            Circle()
+                                .fill(RestFitTheme.mint)
+                                .frame(width: 6, height: 6)
+                                .offset(y: -8)
+                        }
+
+                        Image(systemName: tab.icon)
+                            .font(.title3)
+                            .foregroundStyle(selectedTab == tab ? RestFitTheme.mint : RestFitTheme.faint)
+
+                        Text(tab.title.uppercased())
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(0.5)
+                            .foregroundStyle(selectedTab == tab ? RestFitTheme.mint : RestFitTheme.faint)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 16)
+        .padding(.bottom, 28)
+        .background(RestFitTheme.surface.opacity(0.95))
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(RestFitTheme.line.opacity(0.4))
+                .frame(height: 1)
+        }
+    }
+}
+
+struct FastingView: View {
+    @Environment(WellnessStore.self) private var store
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                AppHeader(name: store.profile.name)
+
+                Text("Fasting")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 24)
+
+                FastingStatusCard()
+                    .padding(.horizontal, 24)
+
+                SurfaceCard {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Choose Protocol")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+
+                        ForEach(FastingProtocol.allCases) { proto in
+                            Button {
+                                store.profile.fastingProtocol = proto
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(proto.displayName)
+                                            .foregroundStyle(.white)
+                                        Text("\(Int(proto.targetHours)) hour fast")
+                                            .font(.caption)
+                                            .foregroundStyle(RestFitTheme.muted)
+                                    }
+                                    Spacer()
+                                    if store.profile.fastingProtocol == proto {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(RestFitTheme.mint)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Coach Tips")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 28)
+
+                    ForEach(store.guidance.filter { $0.icon == "flame.fill" || $0.icon == "drop.fill" || $0.icon == "fork.knife" }) { tip in
+                        GuidanceCard(guidance: tip)
+                            .padding(.horizontal, 24)
+                    }
+                }
+            }
+            .padding(.bottom, 120)
+        }
+    }
+}
+
+struct SleepView: View {
+    @Environment(WellnessStore.self) private var store
+    let onLogSleep: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                AppHeader(name: store.profile.name)
+
+                HStack {
+                    Text("Sleep")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Spacer()
+                    MintButton(title: "Log Sleep", action: onLogSleep)
+                }
+                .padding(.horizontal, 24)
+
+                SleepPanel()
+                    .padding(.horizontal, 24)
+
+                SurfaceCard {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Recent Nights")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+
+                        ForEach(store.sleepEntries.sorted { $0.date > $1.date }.prefix(5)) { entry in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                                        .foregroundStyle(.white)
+                                    Text(entry.durationLabel)
+                                        .font(.caption)
+                                        .foregroundStyle(RestFitTheme.muted)
+                                }
+                                Spacer()
+                                Text("\(entry.qualityScore)%")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(RestFitTheme.mint)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                ForEach(store.guidance.filter { $0.icon == "moon.fill" || $0.icon == "sparkles" }) { tip in
+                    GuidanceCard(guidance: tip)
+                        .padding(.horizontal, 24)
+                }
+            }
+            .padding(.bottom, 120)
+        }
+    }
+}
+
+struct ProfileView: View {
+    @Environment(WellnessStore.self) private var store
+    @State private var name: String = ""
+    @State private var targetWeight: String = ""
+    @State private var selectedProtocol: FastingProtocol = .sixteenEight
+    @State private var remindersEnabled = true
+    @State private var healthMessage: String?
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                AppHeader(name: store.profile.name)
+
+                Text("Profile")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 24)
+
+                SurfaceCard {
+                    VStack(alignment: .leading, spacing: 16) {
+                        labeledField("Name", text: $name)
+                        TextField("Target weight (kg)", text: $targetWeight)
+                            .textFieldStyle(.plain)
+                            .padding(12)
+                            .background(RestFitTheme.card)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(RestFitTheme.line, lineWidth: 1)
+                            )
+                            .foregroundStyle(.white)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Fasting protocol")
+                                .font(.caption)
+                                .foregroundStyle(RestFitTheme.muted)
+                            Picker("Protocol", selection: $selectedProtocol) {
+                                ForEach(FastingProtocol.allCases) { proto in
+                                    Text(proto.displayName).tag(proto)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .tint(RestFitTheme.mint)
+                        }
+
+                        Toggle(isOn: $remindersEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Fasting reminders")
+                                    .foregroundStyle(.white)
+                                Text("Hydration and fast-complete notifications")
+                                    .font(.caption)
+                                    .foregroundStyle(RestFitTheme.muted)
+                            }
+                        }
+                        .tint(RestFitTheme.mint)
+
+                        MintButton(title: "Save Profile") {
+                            let weight = Double(targetWeight) ?? store.profile.targetWeightKg
+                            store.updateProfile(
+                                name: name,
+                                targetWeight: weight,
+                                fastingProtocol: selectedProtocol
+                            )
+                            store.setRemindersEnabled(remindersEnabled)
+                            if remindersEnabled && store.isFasting {
+                                store.scheduleReminders()
+                            } else if !remindersEnabled {
+                                store.cancelReminders()
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                SurfaceCard {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Health data")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+                        Text(HealthDataService.authorizationStatusDescription())
+                            .font(.caption)
+                            .foregroundStyle(RestFitTheme.muted)
+
+                        #if !SKIP
+                        MintButton(title: "Import from Apple Health") {
+                            Task {
+                                healthMessage = await store.importHealthData()
+                            }
+                        }
+                        #endif
+
+                        if let healthMessage {
+                            Text(healthMessage)
+                                .font(.caption)
+                                .foregroundStyle(RestFitTheme.mint)
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                WeightPanel()
+                    .padding(.horizontal, 24)
+
+                SurfaceCard {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("About RestFit")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+                        Text("Track fasting, sleep, and weight in one place. RestFit guides you with personalized tips based on your daily rhythm.")
+                            .font(.caption)
+                            .foregroundStyle(RestFitTheme.muted)
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+            .padding(.bottom, 120)
+        }
+        .onAppear {
+            name = store.profile.name
+            targetWeight = String(format: "%.1f", store.profile.targetWeightKg)
+            selectedProtocol = store.profile.fastingProtocol
+            remindersEnabled = store.remindersEnabled
+        }
+    }
+
+    private func labeledField(_ title: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(RestFitTheme.muted)
+            TextField(title, text: text)
+                .textFieldStyle(.plain)
+                .padding(12)
+                .background(RestFitTheme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(RestFitTheme.line, lineWidth: 1)
+                )
+                .foregroundStyle(.white)
+        }
+    }
+}
+
+struct LogSleepSheet: View {
+    @Environment(WellnessStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var hours = 7
+    @State private var minutes = 45
+    @State private var quality = 80
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Picker("Hours", selection: $hours) {
+                    ForEach(0..<15, id: \.self) { hour in
+                        Text("\(hour) h").tag(hour)
+                    }
+                }
+                Picker("Minutes", selection: $minutes) {
+                    ForEach(Array(stride(from: 0, through: 55, by: 5)), id: \.self) { minute in
+                        Text("\(minute) m").tag(minute)
+                    }
+                }
+                Picker("Quality", selection: $quality) {
+                    ForEach(Array(stride(from: 0, through: 100, by: 5)), id: \.self) { score in
+                        Text("\(score)%").tag(score)
+                    }
+                }
+            }
+            .navigationTitle("Log Sleep")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        store.logSleep(hours: hours, minutes: minutes, quality: quality)
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
+struct AddWeightSheet: View {
+    @Environment(WellnessStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var weightText = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Weight in kg", text: $weightText)
+            }
+            .navigationTitle("Add Weight")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        if let weight = Double(weightText) {
+                            store.logWeight(weight)
+                            dismiss()
+                        }
+                    }
+                    .disabled(Double(weightText) == nil)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .onAppear {
+            weightText = String(format: "%.1f", store.currentWeightKg)
+        }
+    }
+}
