@@ -1,14 +1,17 @@
 import SwiftUI
 
 enum AppTab: String, Hashable, CaseIterable {
-    case home, fast, sleep, meditate, profile
+    case home, fast, sleep, workout, alarm, profile
+
+    static let barTabs: [AppTab] = [.home, .fast, .sleep, .workout, .alarm]
 
     var title: String {
         switch self {
         case .home: "Home"
         case .fast: "Fast"
         case .sleep: "Sleep"
-        case .meditate: "Calm"
+        case .workout: "Workout"
+        case .alarm: "Alarm"
         case .profile: "Me"
         }
     }
@@ -18,7 +21,8 @@ enum AppTab: String, Hashable, CaseIterable {
         case .home: "house.fill"
         case .fast: "clock.fill"
         case .sleep: "moon.fill"
-        case .meditate: "leaf.fill"
+        case .workout: "figure.run"
+        case .alarm: "alarm.fill"
         case .profile: "person.fill"
         }
     }
@@ -82,28 +86,38 @@ struct ContentView: View {
     private var tabContent: some View {
         switch selectedTab {
         case .home:
-            HomeView(onLogSleep: { showLogSleep = true }, onAddWeight: { showAddWeight = true })
+            HomeView(
+                onAddWeight: { showAddWeight = true },
+                onOpenSleep: { selectedTab = .sleep },
+                onProfile: { selectedTab = .profile }
+            )
         case .fast:
-            FastingView()
+            FastingView(onProfile: { selectedTab = .profile })
         case .sleep:
-            SleepView(onLogSleep: { showLogSleep = true })
-        case .meditate:
-            MeditationView()
+            SleepView(
+                onManualLog: { showLogSleep = true },
+                onProfile: { selectedTab = .profile }
+            )
+        case .workout:
+            WorkoutView(onProfile: { selectedTab = .profile })
+        case .alarm:
+            AlarmView(onProfile: { selectedTab = .profile })
         case .profile:
-            ProfileView()
+            ProfileView(onProfile: { selectedTab = .profile })
         }
     }
 }
 
 struct HomeView: View {
     @Environment(WellnessStore.self) private var store
-    let onLogSleep: () -> Void
     let onAddWeight: () -> Void
+    let onOpenSleep: () -> Void
+    let onProfile: () -> Void
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                AppHeader(name: store.profile.name)
+                AppHeader(name: store.profile.name, onProfile: onProfile)
 
                 WelcomeSection(
                     greeting: WellnessGuide.greeting(name: store.profile.name),
@@ -115,19 +129,22 @@ struct HomeView: View {
                 .padding(.horizontal, 24)
 
                 VStack(spacing: 20) {
+                    if store.todayStrengthDay.isCardioDay {
+                        CardioDayReminderCard()
+                    }
                     FastingStatusCard()
-                    QuickActionsGrid(onLogSleep: onLogSleep, onAddWeight: onAddWeight)
+                    QuickActionsGrid(onOpenSleep: onOpenSleep, onAddWeight: onAddWeight)
                     SleepPanel()
                     WeightPanel()
 
-                    if !store.guidance.isEmpty {
+                    if !homeGuidance.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Today's Guidance")
                                 .font(.body.weight(.semibold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 4)
 
-                            ForEach(store.guidance.prefix(3)) { tip in
+                            ForEach(homeGuidance) { tip in
                                 GuidanceCard(guidance: tip)
                             }
                         }
@@ -138,6 +155,44 @@ struct HomeView: View {
             .padding(.bottom, 120)
         }
     }
+
+    private var homeGuidance: [WellnessGuidance] {
+        let tips = store.guidance.filter { tip in
+            // Cardio reminder is shown in its own card above.
+            !(store.todayStrengthDay.isCardioDay && tip.icon == "heart.fill")
+        }
+        return Array(tips.prefix(3))
+    }
+}
+
+struct CardioDayReminderCard: View {
+    @Environment(WellnessStore.self) private var store
+
+    var body: some View {
+        let tip = WellnessGuide.workoutEncouragement(for: store.todayStrengthDay)
+        return SurfaceCard {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "heart.fill")
+                    .font(.title3)
+                    .foregroundStyle(RestFitTheme.coral)
+                    .frame(width: 36, height: 36)
+                    .background(RestFitTheme.coral.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(tip.title)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text(tip.message)
+                        .font(.caption)
+                        .foregroundStyle(RestFitTheme.muted)
+                    Text("Cardio day")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(RestFitTheme.coral)
+                }
+            }
+        }
+    }
 }
 
 struct BottomTabBar: View {
@@ -145,7 +200,7 @@ struct BottomTabBar: View {
 
     var body: some View {
         HStack {
-            ForEach(AppTab.allCases, id: \.self) { tab in
+            ForEach(AppTab.barTabs, id: \.self) { tab in
                 Button {
                     selectedTab = tab
                 } label: {
@@ -185,11 +240,12 @@ struct BottomTabBar: View {
 
 struct FastingView: View {
     @Environment(WellnessStore.self) private var store
+    var onProfile: () -> Void = {}
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                AppHeader(name: store.profile.name)
+                AppHeader(name: store.profile.name, onProfile: onProfile)
 
                 Text("Fasting")
                     .font(.title2.weight(.semibold))
@@ -197,7 +253,7 @@ struct FastingView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 24)
 
-                FastingStatusCard()
+                FastingCircleButton()
                     .padding(.horizontal, 24)
 
                 SurfaceCard {
@@ -232,16 +288,9 @@ struct FastingView: View {
                 }
                 .padding(.horizontal, 24)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Coach Tips")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 28)
-
-                    ForEach(store.guidance.filter { $0.icon == "flame.fill" || $0.icon == "drop.fill" || $0.icon == "fork.knife" }) { tip in
-                        GuidanceCard(guidance: tip)
-                            .padding(.horizontal, 24)
-                    }
+                ForEach(store.guidance.filter { $0.icon == "flame.fill" || $0.icon == "drop.fill" || $0.icon == "fork.knife" }) { tip in
+                    GuidanceCard(guidance: tip)
+                        .padding(.horizontal, 24)
                 }
             }
             .padding(.bottom, 120)
@@ -251,21 +300,32 @@ struct FastingView: View {
 
 struct SleepView: View {
     @Environment(WellnessStore.self) private var store
-    let onLogSleep: () -> Void
+    let onManualLog: () -> Void
+    var onProfile: () -> Void = {}
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                AppHeader(name: store.profile.name)
+                AppHeader(name: store.profile.name, onProfile: onProfile)
 
                 HStack {
                     Text("Sleep")
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(.white)
                     Spacer()
-                    MintButton(title: "Log Sleep", action: onLogSleep)
+                    Button("Manual log") {
+                        onManualLog()
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.mint)
                 }
                 .padding(.horizontal, 24)
+
+                SleepBedCircleButton()
+                    .padding(.horizontal, 24)
+
+                SleepAdjustRow()
+                    .padding(.horizontal, 24)
 
                 SleepPanel()
                     .padding(.horizontal, 24)
@@ -308,6 +368,7 @@ struct SleepView: View {
 
 struct ProfileView: View {
     @Environment(WellnessStore.self) private var store
+    var onProfile: () -> Void = {}
     @State private var name: String = ""
     @State private var targetWeight: String = ""
     @State private var selectedProtocol: FastingProtocol = .sixteenEight
@@ -317,7 +378,7 @@ struct ProfileView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                AppHeader(name: store.profile.name)
+                AppHeader(name: store.profile.name, onProfile: onProfile)
 
                 Text("Profile")
                     .font(.title2.weight(.semibold))
@@ -328,16 +389,25 @@ struct ProfileView: View {
                 SurfaceCard {
                     VStack(alignment: .leading, spacing: 16) {
                         labeledField("Name", text: $name)
-                        TextField("Target weight (kg)", text: $targetWeight)
-                            .textFieldStyle(.plain)
-                            .padding(12)
-                            .background(RestFitTheme.card)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(RestFitTheme.line, lineWidth: 1)
-                            )
-                            .foregroundStyle(.white)
+
+                        Toggle(isOn: Binding(
+                            get: { store.usesPounds },
+                            set: { newValue in
+                                store.setUsesPounds(newValue)
+                                targetWeight = String(format: "%.1f", store.targetWeightDisplay)
+                            }
+                        )) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Weight in pounds")
+                                    .foregroundStyle(.white)
+                                Text(store.usesPounds ? "Currently showing lb" : "Currently showing kg")
+                                    .font(.caption)
+                                    .foregroundStyle(RestFitTheme.muted)
+                            }
+                        }
+                        .tint(RestFitTheme.mint)
+
+                        labeledField("Target weight (\(store.weightUnitLabel))", text: $targetWeight)
 
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Fasting protocol")
@@ -364,10 +434,10 @@ struct ProfileView: View {
                         .tint(RestFitTheme.mint)
 
                         MintButton(title: "Save Profile") {
-                            let weight = Double(targetWeight) ?? store.profile.targetWeightKg
+                            let entered = Double(targetWeight) ?? store.targetWeightDisplay
                             store.updateProfile(
                                 name: name,
-                                targetWeight: weight,
+                                targetWeight: store.kilogramsFromDisplay(entered),
                                 fastingProtocol: selectedProtocol
                             )
                             store.setRemindersEnabled(remindersEnabled)
@@ -426,7 +496,7 @@ struct ProfileView: View {
         }
         .onAppear {
             name = store.profile.name
-            targetWeight = String(format: "%.1f", store.profile.targetWeightKg)
+            targetWeight = String(format: "%.1f", store.targetWeightDisplay)
             selectedProtocol = store.profile.fastingProtocol
             remindersEnabled = store.remindersEnabled
         }
@@ -502,7 +572,7 @@ struct AddWeightSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Weight in kg", text: $weightText)
+                TextField("Weight in \(store.weightUnitLabel)", text: $weightText)
             }
             .navigationTitle("Add Weight")
             .toolbar {
@@ -512,7 +582,7 @@ struct AddWeightSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         if let weight = Double(weightText) {
-                            store.logWeight(weight)
+                            store.logWeight(store.kilogramsFromDisplay(weight))
                             dismiss()
                         }
                     }
@@ -522,7 +592,7 @@ struct AddWeightSheet: View {
         }
         .presentationDetents([.medium])
         .onAppear {
-            weightText = String(format: "%.1f", store.currentWeightKg)
+            weightText = String(format: "%.1f", store.currentWeightDisplay)
         }
     }
 }

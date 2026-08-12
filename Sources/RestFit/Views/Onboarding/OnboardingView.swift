@@ -12,7 +12,8 @@ struct OnboardingView: View {
     @Environment(WellnessStore.self) private var store
     @State private var pageIndex = 0
     @State private var name = ""
-    @State private var targetWeight = "65.0"
+    @State private var targetWeight = "143.3"
+    @State private var usesPounds = true
     @State private var selectedProtocol: FastingProtocol = .sixteenEight
     @State private var enableReminders = true
     @State private var enableHealth = false
@@ -120,7 +121,28 @@ struct OnboardingView: View {
                     .padding(.top, 48)
 
                 setupField("Your name", text: $name)
-                setupField("Target weight (kg)", text: $targetWeight)
+
+                Toggle(isOn: $usesPounds) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Weight in pounds")
+                            .foregroundStyle(.white)
+                        Text(usesPounds ? "Target will be saved in lb" : "Target will be saved in kg")
+                            .font(.caption)
+                            .foregroundStyle(RestFitTheme.muted)
+                    }
+                }
+                .tint(RestFitTheme.mint)
+                .onChange(of: usesPounds) { _, newValue in
+                    if let value = Double(targetWeight) {
+                        if newValue {
+                            targetWeight = String(format: "%.1f", value * 2.2046226218)
+                        } else {
+                            targetWeight = String(format: "%.1f", value / 2.2046226218)
+                        }
+                    }
+                }
+
+                setupField("Target weight (\(usesPounds ? "lb" : "kg"))", text: $targetWeight)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Fasting protocol")
@@ -187,7 +209,8 @@ struct OnboardingView: View {
             pageIndex += 1
             if pageIndex == pages.count {
                 name = store.profile.name
-                targetWeight = String(format: "%.1f", store.profile.targetWeightKg)
+                usesPounds = store.usesPounds
+                targetWeight = String(format: "%.1f", store.targetWeightDisplay)
             }
             return
         }
@@ -197,10 +220,11 @@ struct OnboardingView: View {
 
     private func finishOnboarding() {
         isFinishing = true
-        let weight = Double(targetWeight) ?? store.profile.targetWeightKg
+        store.setUsesPounds(usesPounds)
+        let entered = Double(targetWeight) ?? store.targetWeightDisplay
         store.completeOnboarding(
             name: name.isEmpty ? "Maria" : name,
-            targetWeight: weight,
+            targetWeight: store.kilogramsFromDisplay(entered),
             fastingProtocol: selectedProtocol,
             remindersEnabled: enableReminders
         )

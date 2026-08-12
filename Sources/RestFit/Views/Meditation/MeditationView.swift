@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Past feature (not shown in the current UI). See `PastFeatures`.
 struct MeditationView: View {
     @Environment(WellnessStore.self) private var store
 

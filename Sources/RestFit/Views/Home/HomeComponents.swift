@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AppHeader: View {
     let name: String
+    var onProfile: () -> Void = {}
 
     var body: some View {
         HStack {
@@ -25,15 +26,19 @@ struct AppHeader: View {
 
             Spacer()
 
-            Circle()
-                .fill(RestFitTheme.line)
-                .frame(width: 36, height: 36)
-                .overlay {
-                    Text(String(name.prefix(1)).uppercased())
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                }
-                .overlay(Circle().stroke(RestFitTheme.line, lineWidth: 1))
+            Button(action: onProfile) {
+                Circle()
+                    .fill(RestFitTheme.line)
+                    .frame(width: 36, height: 36)
+                    .overlay {
+                        Text(String(name.prefix(1)).uppercased())
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                    }
+                    .overlay(Circle().stroke(RestFitTheme.line, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Profile")
         }
         .padding(.horizontal, 24)
         .padding(.top, 28)
@@ -139,19 +144,181 @@ struct FastingStatusCard: View {
     }
 }
 
+struct FastingCircleButton: View {
+    @Environment(WellnessStore.self) private var store
+
+    var body: some View {
+        VStack(spacing: 20) {
+            if store.isFasting {
+                Text(store.profile.fastingProtocol.displayName)
+                    .font(.title.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text(store.fastingTimerLabel)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("of \(store.fastingTargetShortLabel) · meal in \(store.nextMealLabel)")
+                    .font(.subheadline)
+                    .foregroundStyle(RestFitTheme.muted)
+            } else {
+                Text("Ready to fast")
+                    .font(.title.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text(store.profile.fastingProtocol.displayName)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("\(Int(store.profile.fastingProtocol.targetHours)) hour target · Day \(store.profile.fastingStreakDays) streak")
+                    .font(.subheadline)
+                    .foregroundStyle(RestFitTheme.muted)
+            }
+
+            Button {
+                store.toggleFasting()
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(store.isFasting ? RestFitTheme.coral : RestFitTheme.mint)
+                        .frame(width: 148, height: 148)
+                    Circle()
+                        .stroke(Color.white.opacity(0.18), lineWidth: 6)
+                        .frame(width: 148, height: 148)
+                    Circle()
+                        .trim(from: 0.0, to: store.isFasting ? store.fastingProgress : 0.0)
+                        .stroke(RestFitTheme.canvas.opacity(0.35), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 148, height: 148)
+
+                    VStack(spacing: 6) {
+                        Image(systemName: store.isFasting ? "fork.knife" : "flame.fill")
+                            .font(.system(size: 26, weight: .semibold))
+                            .foregroundStyle(RestFitTheme.canvas)
+                        Text(store.isFasting ? "End Fast" : "Start Fast")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(RestFitTheme.canvas)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+    }
+}
+
+struct SleepBedCircleButton: View {
+    @Environment(WellnessStore.self) private var store
+
+    var body: some View {
+        VStack(spacing: 20) {
+            if store.isSleeping {
+                Text("Since \(store.sleepStartedLabel)")
+                    .font(.subheadline)
+                    .foregroundStyle(RestFitTheme.muted)
+                Text(store.sleepElapsedLabel)
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            } else {
+                Text("Ready for bed")
+                    .font(.title.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text("Last night: \(store.lastSleepLabel)")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+
+            Button {
+                store.toggleSleepSession()
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(store.isSleeping ? RestFitTheme.coral : RestFitTheme.mint)
+                        .frame(width: 148, height: 148)
+                    Circle()
+                        .stroke(Color.white.opacity(0.18), lineWidth: 6)
+                        .frame(width: 148, height: 148)
+
+                    VStack(spacing: 6) {
+                        Image(systemName: store.isSleeping ? "sun.max.fill" : "moon.zzz.fill")
+                            .font(.system(size: 26, weight: .semibold))
+                            .foregroundStyle(RestFitTheme.canvas)
+                        Text(store.isSleeping ? "Wake Up" : "I'm in bed")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(RestFitTheme.canvas)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if store.isSleeping {
+                Button("Cancel") {
+                    store.cancelSleep()
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(RestFitTheme.muted)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+    }
+}
+
+struct SleepAdjustRow: View {
+    @Environment(WellnessStore.self) private var store
+
+    var body: some View {
+        if !store.isSleeping, store.latestSleepEntry != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Adjust last night")
+                    .font(.caption)
+                    .foregroundStyle(RestFitTheme.muted)
+                Text("On your phone after lights out? Trim time. Fell asleep earlier? Add it back.")
+                    .font(.caption2)
+                    .foregroundStyle(RestFitTheme.faint)
+
+                HStack(spacing: 10) {
+                    sleepAdjustButton(title: "−30 min", delta: -30)
+                    sleepAdjustButton(title: "+30 min", delta: 30)
+                }
+            }
+        }
+    }
+
+    private func sleepAdjustButton(title: String, delta: Int) -> some View {
+        Button {
+            store.adjustLatestSleep(byMinutes: delta)
+        } label: {
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(RestFitTheme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(RestFitTheme.line, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct QuickActionsGrid: View {
     @Environment(WellnessStore.self) private var store
-    var onLogSleep: () -> Void
+    var onOpenSleep: () -> Void
     var onAddWeight: () -> Void
 
     var body: some View {
         HStack(spacing: 16) {
             QuickActionButton(
-                title: "Log Sleep",
-                subtitle: "Last night: \(store.lastSleepLabel)",
+                title: "Sleep",
+                subtitle: store.isSleeping ? "In bed · \(store.sleepElapsedLabel)" : "Last night: \(store.lastSleepLabel)",
                 icon: "bed.double.fill",
                 tint: RestFitTheme.coral,
-                action: onLogSleep
+                action: onOpenSleep
             )
 
             QuickActionButton(
@@ -165,7 +332,7 @@ struct QuickActionsGrid: View {
     }
 }
 
-private struct QuickActionButton: View {
+struct QuickActionButton: View {
     let title: String
     let subtitle: String
     let icon: String
@@ -262,22 +429,32 @@ struct WeightPanel: View {
                         Text("Weight Journey")
                             .font(.body.weight(.semibold))
                             .foregroundStyle(.white)
-                        Text(String(format: "Target: %.1f kg", store.profile.targetWeightKg))
+                        Text("Target: \(String(format: "%.1f", store.targetWeightDisplay)) \(store.weightUnitLabel)")
                             .font(.caption)
                             .foregroundStyle(RestFitTheme.muted)
                     }
                     Spacer()
                     TrendBadge(
-                        text: WellnessGuide.weightDelta(entries: store.weightEntries),
+                        text: store.weightDeltaLabel,
                         color: RestFitTheme.coral
                     )
                 }
 
+                Toggle(isOn: Binding(
+                    get: { store.usesPounds },
+                    set: { store.setUsesPounds($0) }
+                )) {
+                    Text(store.usesPounds ? "Pounds (lb)" : "Kilograms (kg)")
+                        .font(.caption)
+                        .foregroundStyle(RestFitTheme.muted)
+                }
+                .tint(RestFitTheme.mint)
+
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(String(format: "%.1f", store.currentWeightKg))
+                    Text(String(format: "%.1f", store.currentWeightDisplay))
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                    Text("kg")
+                    Text(store.weightUnitLabel)
                         .font(.title3.weight(.medium))
                         .foregroundStyle(RestFitTheme.muted)
                     Text("Current")
@@ -287,7 +464,7 @@ struct WeightPanel: View {
                 }
 
                 LineTrendChart(
-                    values: store.weeklyWeightValues,
+                    values: store.weeklyWeightDisplayValues,
                     labels: ["M", "T", "W", "T", "F", "S", "S"],
                     color: RestFitTheme.coral,
                     fillOpacity: 0.08

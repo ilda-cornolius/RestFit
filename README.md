@@ -10,7 +10,14 @@ RestFit helps you track **intermittent fasting**, **sleep quality**, and **weigh
 - **Sleep tracking** — quality scores, weekly trends, log sleep sessions
 - **Weight journey** — current weight vs target, trend charts
 - **Personalized guidance** — coaching tips based on your fasting, sleep, and weight data
+- **Alarms** — wake and wind-down reminders in the bottom bar
+- **Workouts** — weekly plan with Rest/Cardio/Lift, custom week start, and day/week splash moments
+- **Profile** — open from the avatar in the top-right
 - **Dark wellness UI** — ported from your UXPilot React design (mint/coral palette)
+
+### Past features (not in the UI)
+
+Meditation, Journal, Pomodoro, and To-Do were built, then removed from navigation so they can be added back later. The source is still in the project — see `Sources/RestFit/PastFeatures.swift`.
 
 ## Platform support
 
@@ -59,7 +66,7 @@ Sources/RestFit/
 ├── Models/          # Fasting, sleep, weight data models
 ├── Services/        # WellnessStore (persistence) + WellnessGuide (coaching)
 ├── Theme/           # Colors and shared UI styles
-└── Views/           # Home, Fast, Sleep, Profile screens
+└── Views/           # Home, Fast, Sleep, Workout, Alarm, Profile screens
 ```
 
 ## Origin

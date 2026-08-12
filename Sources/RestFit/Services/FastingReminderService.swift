@@ -75,4 +75,101 @@ enum FastingReminderService {
             logger.error("Failed to schedule \(id): \(error.localizedDescription)")
         }
     }
+
+    static func schedulePomodoroCompletion(phase: PomodoroPhase, remainingSeconds: TimeInterval) async {
+        let center = UNUserNotificationCenter.current()
+        await center.removePendingNotificationRequests(withIdentifiers: ["restfit.pomodoro.complete"])
+        guard remainingSeconds > 1 else { return }
+
+        let title: String
+        let body: String
+        switch phase {
+        case .focus:
+            title = "Focus complete"
+            body = "Nice work. Take a short break and stretch."
+        case .shortBreak:
+            title = "Break over"
+            body = "Ready for another focus block?"
+        case .longBreak:
+            title = "Long break over"
+            body = "You earned that rest. Start a fresh cycle when you're ready."
+        }
+
+        await schedule(
+            id: "restfit.pomodoro.complete",
+            title: title,
+            body: body,
+            date: Date().addingTimeInterval(remainingSeconds)
+        )
+    }
+
+    static func cancelPomodoroCompletion() async {
+        await UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: ["restfit.pomodoro.complete"])
+    }
+
+    static func cancelAlarm(id: String) async {
+        await UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [id])
+    }
+
+    static let morningWorkoutID = "restfit.workout.morning"
+    static let wakeWorkoutID = "restfit.workout.wakeup"
+
+    static func scheduleMorningWorkoutNudge(
+        enabled: Bool,
+        hour: Int,
+        minute: Int,
+        title: String,
+        body: String
+    ) async {
+        let center = UNUserNotificationCenter.current()
+        await center.removePendingNotificationRequests(withIdentifiers: [morningWorkoutID])
+        guard enabled else { return }
+        guard let fireDate = nextAlarmDate(hour: hour, minute: minute) else { return }
+        await schedule(
+            id: morningWorkoutID,
+            title: title,
+            body: body,
+            date: fireDate
+        )
+    }
+
+    static func scheduleWakeUpWorkoutNudge(title: String, body: String, delaySeconds: TimeInterval = 120) async {
+        let center = UNUserNotificationCenter.current()
+        await center.removePendingNotificationRequests(withIdentifiers: [wakeWorkoutID])
+        await schedule(
+            id: wakeWorkoutID,
+            title: title,
+            body: body,
+            date: Date().addingTimeInterval(delaySeconds)
+        )
+    }
+
+    static func rescheduleAlarms(_ alarms: [AlarmItem]) async {
+        for alarm in alarms {
+            await cancelAlarm(id: alarm.notificationID)
+            guard alarm.isEnabled else { continue }
+            guard let fireDate = nextAlarmDate(hour: alarm.hour, minute: alarm.minute) else { continue }
+            let suffix = alarm.repeatsDaily ? "Repeats daily" : "One time"
+            await schedule(
+                id: alarm.notificationID,
+                title: alarm.label,
+                body: "\(alarm.timeLabel) · \(suffix)",
+                date: fireDate
+            )
+        }
+    }
+
+    static func nextAlarmDate(hour: Int, minute: Int, from date: Date = .now) -> Date? {
+        var components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+        guard let today = Calendar.current.date(from: components) else { return nil }
+        if today > date {
+            return today
+        }
+        return Calendar.current.date(byAdding: .day, value: 1, to: today)
+    }
 }

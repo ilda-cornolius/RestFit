@@ -30,7 +30,8 @@ enum WellnessGuide {
         fastingProgress: Double,
         isFasting: Bool,
         sleepEntries: [SleepEntry],
-        weightEntries: [WeightEntry]
+        weightEntries: [WeightEntry],
+        usesPounds: Bool = true
     ) -> [WellnessGuidance] {
         var tips: [WellnessGuidance] = []
 
@@ -79,11 +80,13 @@ enum WellnessGuide {
         }
 
         if let latest = weightEntries.sorted(by: { $0.date > $1.date }).first {
-            let delta = latest.kilograms - profile.targetWeightKg
-            if delta > 0 {
+            let deltaKg = latest.kilograms - profile.targetWeightKg
+            let shown = usesPounds ? deltaKg * 2.2046226218 : deltaKg
+            let unit = usesPounds ? "lb" : "kg"
+            if deltaKg > 0 {
                 tips.append(WellnessGuidance(
                     title: "Weight journey",
-                    message: String(format: "%.1f kg to your target. Consistency beats speed.", delta),
+                    message: "\(String(format: "%.1f", shown)) \(unit) to your target. Consistency beats speed.",
                     priority: 2,
                     icon: "scalemass.fill"
                 ))
@@ -100,6 +103,39 @@ enum WellnessGuide {
         return tips.sorted { $0.priority < $1.priority }
     }
 
+    static func workoutEncouragement(for day: StrengthDayPlan, hour: Int = Calendar.current.component(.hour, from: .now)) -> WellnessGuidance {
+        if day.isCardioDay {
+            return WellnessGuidance(
+                title: hour < 11 ? "Morning cardio" : "Cardio day",
+                message: hour < 11
+                    ? "You're up. A walk, run, or bike ride will wake your body up."
+                    : "Today is cardio. Move for at least 20–30 minutes when you can.",
+                priority: 1,
+                icon: "heart.fill"
+            )
+        }
+        if day.isOffDay {
+            return WellnessGuidance(
+                title: hour < 11 ? "Easy morning" : "Rest day",
+                message: hour < 11
+                    ? "Rest is part of the plan. Stretch lightly and hydrate."
+                    : "No lifting today. Recover well so tomorrow hits harder.",
+                priority: 2,
+                icon: "leaf.fill"
+            )
+        }
+        let liftCount = day.exercises.count
+        let liftHint = liftCount > 0 ? " \(liftCount) lifts are already lined up." : ""
+        return WellnessGuidance(
+            title: hour < 11 ? "Time to train" : "Workout day",
+            message: hour < 11
+                ? "Good morning. Get after your \(day.focus.lowercased()) session.\(liftHint)"
+                : "\(day.dayTypeLabel).\(liftHint) Start when you're ready.",
+            priority: 1,
+            icon: "flame.fill"
+        )
+    }
+
     static func sleepTrendPercent(scores: [Int]) -> String {
         guard scores.count >= 2 else { return "+0%" }
         let recent = Double(scores.suffix(3).reduce(0, +)) / Double(min(3, scores.count))
@@ -109,11 +145,13 @@ enum WellnessGuide {
         return String(format: "%+.1f%%", change)
     }
 
-    static func weightDelta(entries: [WeightEntry]) -> String {
-        guard entries.count >= 2 else { return "0 kg" }
+    static func weightDelta(entries: [WeightEntry], usesPounds: Bool = true) -> String {
+        let unit = usesPounds ? "lb" : "kg"
+        guard entries.count >= 2 else { return "0 \(unit)" }
         let sorted = entries.sorted { $0.date < $1.date }
-        let delta = sorted.last!.kilograms - sorted.first!.kilograms
-        return String(format: "%+.1f kg", delta)
+        let deltaKg = sorted.last!.kilograms - sorted.first!.kilograms
+        let shown = usesPounds ? deltaKg * 2.2046226218 : deltaKg
+        return "\(String(format: "%+.1f", shown)) \(unit)"
     }
 
     static let meditationTip = WellnessGuidance(
