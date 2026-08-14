@@ -374,6 +374,7 @@ struct ProfileView: View {
     @State private var selectedProtocol: FastingProtocol = .sixteenEight
     @State private var remindersEnabled = true
     @State private var healthMessage: String?
+    @State private var showPrivacyPolicy = false
 
     var body: some View {
         ScrollView {
@@ -481,18 +482,40 @@ struct ProfileView: View {
                     .padding(.horizontal, 24)
 
                 SurfaceCard {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("About RestFit")
                             .font(.body.weight(.semibold))
                             .foregroundStyle(.white)
-                        Text("Track fasting, sleep, and weight in one place. RestFit guides you with personalized tips based on your daily rhythm.")
+                        Text("Track fasting, sleep, weight, and workouts in one place. Tips are based on what you log — not medical advice.")
                             .font(.caption)
                             .foregroundStyle(RestFitTheme.muted)
+                        Text(RestFitLegal.shortDisclaimer)
+                            .font(.caption2)
+                            .foregroundStyle(RestFitTheme.coral)
+                        Text("Version \(RestFitLegal.appVersionLabel)")
+                            .font(.caption2)
+                            .foregroundStyle(RestFitTheme.faint)
+
+                        Button {
+                            showPrivacyPolicy = true
+                        } label: {
+                            Text("Privacy Policy")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(RestFitTheme.canvas)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(RestFitTheme.mint)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 24)
             }
             .padding(.bottom, 120)
+        }
+        .sheet(isPresented: $showPrivacyPolicy) {
+            PrivacyPolicyView()
         }
         .onAppear {
             name = store.profile.name

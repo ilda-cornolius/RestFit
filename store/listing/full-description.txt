@@ -1,0 +1,7 @@
+RestFit is a simple wellness companion for everyday habits.
+
+Track intermittent fasting with a clear timer and common protocols (16:8, 18:6, 20:4). Log sleep and weight, plan Rest / Cardio / Workout days, and set wake or reminder alarms. Personalized tips are based on what you track in the app — not medical diagnosis.
+
+Everything stays on your device. No RestFit account required.
+
+RestFit is for general wellness tracking only. It is not a medical device and does not provide medical advice, diagnosis, or treatment.

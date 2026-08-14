@@ -76,3 +76,10 @@ The UI is based on your UXPilot React export (`uxpilot-react-export`), reimpleme
 ## License
 
 See Skip project defaults. Customize as needed for your app store release.
+
+## Play Store
+
+Listing copy, Data safety / content rating notes, and assets live in `store/`.
+Privacy policy (web): `docs/privacy/` — enable GitHub Pages on `/docs` for
+`https://ilda-cornolius.github.io/RestFit/privacy/`
+
