@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RestFit — Delete data (keep account)</title>
+  <style>
+    :root {
+      --bg: #0b0c1e;
+      --text: #f4f6ff;
+      --muted: #9aa3c7;
+      --mint: #2ee59d;
+    }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1a2250 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 20px 80px;
+    }
+    h1, h2 { line-height: 1.25; }
+    h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.15rem; margin-top: 2rem; color: var(--mint); }
+    p, li { color: var(--muted); }
+    .meta { color: var(--muted); font-size: 0.95rem; }
+    .callout {
+      margin: 1.25rem 0 1.75rem;
+      padding: 1rem 1.1rem;
+      border-radius: 12px;
+      background: rgba(46, 229, 157, 0.1);
+      color: #c9ffe8;
+      border: 1px solid rgba(46, 229, 157, 0.35);
+    }
+    a { color: var(--mint); }
+    ol, ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Delete your RestFit data (keep your account)</h1>
+    <p class="meta"><strong>App:</strong> RestFit &nbsp;·&nbsp; <strong>Last updated:</strong> August 14, 2026</p>
+    <div class="callout">
+      Use this page to delete wellness data stored by RestFit <strong>without</strong> deleting your account.
+      This link is provided for Google Play Data safety disclosures.
+    </div>
+
+    <h2>Delete data in the app (recommended)</h2>
+    <ol>
+      <li>Open <strong>RestFit</strong> on your device.</li>
+      <li>Go to <strong>Profile</strong>.</li>
+      <li>Under <strong>Account</strong>, tap <strong>Clear on-device data</strong>.</li>
+      <li>Confirm the prompt.</li>
+    </ol>
+    <p>Your sign-in stays active. Only on-device wellness logs and related local settings are cleared.</p>
+
+    <h2>Other ways to remove on-device data</h2>
+    <ul>
+      <li>Clear RestFit’s app storage in your device settings, or</li>
+      <li>Uninstall RestFit (removes local data subject to device backup behavior)</li>
+    </ul>
+
+    <h2>What is deleted</h2>
+    <ul>
+      <li>Fasting history and protocol preferences stored by RestFit</li>
+      <li>Sleep and weight entries</li>
+      <li>Workout plans, notes, and session history</li>
+      <li>Alarms, reminders preferences, and other RestFit settings stored on the device</li>
+      <li>Local profile fields RestFit keeps for wellness tracking (for example target weight)</li>
+    </ul>
+
+    <h2>What is kept</h2>
+    <ul>
+      <li>Your RestFit account sign-in (email/password Firebase account and/or Google Sign-In session as applicable)</li>
+      <li>Account email / user ID held by Firebase Authentication or Google for sign-in</li>
+    </ul>
+
+    <h2>Retention</h2>
+    <p>
+      Clearing data in the app takes effect <strong>immediately</strong> on that device.
+      RestFit does not upload wellness logs to a RestFit server, so there is no separate cloud wellness copy for us to retain after you clear local data.
+    </p>
+
+    <h2>Want to delete your account too?</h2>
+    <p>
+      See <a href="../delete-account/">Delete account</a> for steps to remove your RestFit login and local data together.
+    </p>
+
+    <h2>Need help?</h2>
+    <p>
+      Open an issue on the
+      <a href="https://github.com/ilda-cornolius/RestFit">RestFit GitHub repository</a>
+      with the subject “Data deletion request” and the email used to sign in.
+      We aim to respond within <strong>7 days</strong>.
+    </p>
+    <p>
+      Related: <a href="../privacy/">Privacy Policy</a> ·
+      <a href="../delete-account/">Delete account</a>
+    </p>
+  </main>
+</body>
+</html>

@@ -138,6 +138,63 @@ import OSLog
         authUser = nil
     }
 
+    /// Clears fasting/sleep/weight/workout logs and resets profile defaults, but keeps the signed-in account.
+    func clearOnDeviceDataKeepingAccount() {
+        let signedIn = authUser
+        resetWellnessDataToDefaults(
+            name: signedIn?.displayName ?? "",
+            completedOnboarding: true
+        )
+        authUser = signedIn
+        cancelReminders()
+    }
+
+    /// Deletes Firebase account (if any), signs out, and clears all on-device RestFit data.
+    @MainActor
+    func deleteAccountAndLocalData() async throws {
+        try await FirebaseAuthService.deleteAccount()
+        FirebaseAuthService.signOut()
+        authUser = nil
+        resetWellnessDataToDefaults(name: "", completedOnboarding: false)
+        cancelReminders()
+    }
+
+    private func resetWellnessDataToDefaults(name: String, completedOnboarding: Bool) {
+        profile = WellnessProfile(
+            name: name.isEmpty ? WellnessProfile.default.name : name,
+            targetWeightKg: 65.0,
+            fastingProtocol: .sixteenEight,
+            fastingStreakDays: 0,
+            hasCompletedOnboarding: completedOnboarding,
+            remindersEnabled: true,
+            weightUnit: profile.weightUnit ?? .pounds
+        )
+        sleepEntries = []
+        weightEntries = []
+        meditationEntries = []
+        journalEntries = []
+        alarms = []
+        todoItems = []
+        workoutEntries = []
+        strengthPlan = .sample
+        workoutSettings = .default
+        completedStrengthIDs = []
+        pomodoroSessions = []
+        pomodoroSettings = .default
+        isFasting = false
+        fastingStartedAt = nil
+        isMeditating = false
+        meditationStartedAt = nil
+        activeMeditationPreset = nil
+        isSleeping = false
+        sleepStartedAt = nil
+        isWorkingOut = false
+        workoutStartedAt = nil
+        activeWorkoutKind = nil
+        resetPomodoro()
+        save()
+    }
+
     func tick() {
         now = .now
         if isPomodoroRunning && pomodoroProgress >= 1.0 {

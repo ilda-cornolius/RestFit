@@ -45,7 +45,7 @@
 <body>
   <main>
     <h1>Privacy Policy for RestFit</h1>
-    <p class="meta"><strong>Last updated:</strong> August 13, 2026</p>
+    <p class="meta"><strong>Last updated:</strong> August 14, 2026</p>
     <div class="disclaimer">
       RestFit is a personal wellness tracker. It is not a medical device and does not provide medical advice, diagnosis, or treatment.
     </div>
@@ -53,10 +53,10 @@
 
     <h2>Summary</h2>
     <ul>
-    <li>RestFit stores wellness logs <strong>on your device</strong>.</li>
-    <li>Account sign-in (email/password) is handled by <strong>Firebase Authentication</strong>.</li>
-    <li>We do <strong>not</strong> operate a separate RestFit server that stores your fasting, sleep, weight, or workout logs.</li>
-    <li>The App is <strong>not</strong> a medical device and does <strong>not</strong> diagnose, treat, cure, or prevent any disease.</li>
+      <li>RestFit stores wellness logs <strong>on your device</strong>.</li>
+      <li>Account sign-in uses <strong>email/password (Firebase Authentication)</strong> and/or <strong>Google Sign-In</strong>.</li>
+      <li>We do <strong>not</strong> operate a separate RestFit server that stores your fasting, sleep, weight, or workout logs.</li>
+      <li>The App is <strong>not</strong> a medical device and does <strong>not</strong> diagnose, treat, cure, or prevent any disease.</li>
     </ul>
 
     <h2>Information the App stores on your device</h2>
@@ -71,6 +71,14 @@
     </ul>
     <p>This information stays on your device unless you choose to share it through your device’s own sharing or backup features.</p>
 
+    <h2>Account information sent off your device</h2>
+    <p>When you create or sign in to an account:</p>
+    <ul>
+      <li><strong>Email/password:</strong> your email and password are sent to Firebase Authentication (Google) to create and verify your account.</li>
+      <li><strong>Google Sign-In:</strong> Google provides your account email / ID so you can sign in.</li>
+    </ul>
+    <p>RestFit does not use this to upload your wellness logs to a RestFit backend.</p>
+
     <h2>Health-related data</h2>
     <p>RestFit may process health-related information that you enter (for example sleep duration/quality or body weight) to show progress and tips inside the App.</p>
     <p>On Apple platforms, if you choose to import data from Apple Health, that import happens only after you grant permission in the system Health permission sheet. RestFit does not force Health access.</p>
@@ -79,13 +87,17 @@
     <p>If you enable reminders, the App may schedule local notifications on your device (for example fasting or morning workout nudges). You can turn reminders off in Profile or system settings.</p>
 
     <h2>Internet access</h2>
-    <p>The Android build may request internet permission for platform/runtime needs. RestFit does not use that access to upload your wellness logs to a RestFit backend.</p>
+    <p>The Android build may request internet permission for sign-in and platform/runtime needs. RestFit does not use that access to upload your wellness logs to a RestFit backend.</p>
 
     <h2>Data sharing</h2>
     <p>RestFit does not sell your personal information. RestFit does not share your on-device wellness logs with advertisers or data brokers.</p>
 
     <h2>Data retention and deletion</h2>
-    <p>Your data remains on your device until you clear app storage, uninstall the App, or delete entries inside the App (where available). Uninstalling removes the App’s local data, subject to your device’s backup behavior.</p>
+    <ul>
+      <li><strong>On-device wellness data:</strong> use <strong>Profile → Clear on-device data</strong>, clear app storage, or uninstall. You can clear this data without deleting your account. Steps: <a href="../delete-data/">Delete data</a>.</li>
+      <li><strong>Account deletion:</strong> use <strong>Profile → Delete account</strong>, or follow the steps at <a href="../delete-account/">Delete account</a>.</li>
+    </ul>
+    <p>Deleting your account removes your RestFit Firebase Authentication account when one exists (email/password), signs you out, and clears on-device RestFit data on that device. In-app deletion is processed promptly when the request succeeds. We do not keep a separate RestFit copy of your wellness logs on our servers.</p>
 
     <h2>Children’s privacy</h2>
     <p>RestFit is intended for adults. It is not directed to children under 13.</p>

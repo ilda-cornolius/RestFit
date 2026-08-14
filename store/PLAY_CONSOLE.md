@@ -12,12 +12,21 @@ RestFit requires sign-in (email/password via Firebase, or Google).
 
 ## Privacy policy URL
 
-
 After enabling GitHub Pages (Settings → Pages → Deploy from branch `main` / folder `/docs`):
 
 `https://ilda-cornolius.github.io/RestFit/privacy/`
 
 Also available in-app under **Profile → Privacy Policy**.
+
+## Delete account URL (Data safety / Account deletion)
+
+`https://ilda-cornolius.github.io/RestFit/delete-account/`
+
+In-app: **Profile → Delete account** (and **Clear on-device data** to delete logs without deleting the account).
+
+Account creation methods to declare: **Username and password** + **OAuth**.
+Optional “delete some data without deleting account?” → **Yes**.
+Delete data URL: `https://ilda-cornolius.github.io/RestFit/delete-data/`
 
 ## Store listing copy
 

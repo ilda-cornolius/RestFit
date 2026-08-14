@@ -75,6 +75,19 @@ enum FirebaseAuthService {
         #endif
     }
 
+    /// Deletes the Firebase Auth user when one exists (email/password).
+    /// Google-only local sessions have no Firebase user — callers still clear local auth/data.
+    static func deleteAccount() async throws {
+        #if SKIP
+        guard let user = Auth.auth().currentUser else { return }
+        do {
+            try await user.delete()
+        } catch {
+            throw FirebaseAuthError.failed(error.localizedDescription)
+        }
+        #endif
+    }
+
     #if SKIP
     private static func authUser(from user: User) -> AuthUser {
         let email = user.email ?? ""

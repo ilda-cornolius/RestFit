@@ -373,6 +373,10 @@ struct ProfileView: View {
     @State private var remindersEnabled = true
     @State private var healthMessage: String?
     @State private var showPrivacyPolicy = false
+    @State private var showClearDataConfirm = false
+    @State private var showDeleteAccountConfirm = false
+    @State private var isDeletingAccount = false
+    @State private var accountMessage: String?
 
     var body: some View {
         ScrollView {
@@ -504,6 +508,43 @@ struct ProfileView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
+
+                        Button {
+                            showClearDataConfirm = true
+                        } label: {
+                            Text("Clear on-device data")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.white.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            showDeleteAccountConfirm = true
+                        } label: {
+                            Text(isDeletingAccount ? "Deleting…" : "Delete account")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(RestFitTheme.coral.opacity(0.35))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isDeletingAccount)
+
+                        if let accountMessage {
+                            Text(accountMessage)
+                                .font(.caption)
+                                .foregroundStyle(RestFitTheme.mint)
+                        }
+
+                        Text("Clear on-device data removes wellness logs but keeps your sign-in (\(RestFitLegal.deleteDataURL)). Delete account removes your RestFit login and local data (\(RestFitLegal.deleteAccountURL)).")
+                            .font(.caption2)
+                            .foregroundStyle(RestFitTheme.faint)
                     }
                 }
                 .padding(.horizontal, 24)
@@ -543,6 +584,36 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $showPrivacyPolicy) {
             PrivacyPolicyView()
+        }
+        .alert("Clear on-device data?", isPresented: $showClearDataConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear data", role: .destructive) {
+                store.clearOnDeviceDataKeepingAccount()
+                name = store.profile.name
+                targetWeight = String(format: "%.1f", store.targetWeightDisplay)
+                selectedProtocol = store.profile.fastingProtocol
+                remindersEnabled = store.remindersEnabled
+                accountMessage = "On-device wellness data cleared. Your account is still signed in."
+            }
+        } message: {
+            Text("This deletes fasting, sleep, weight, workout, and other logs stored on this device. Your RestFit account sign-in is kept.")
+        }
+        .alert("Delete account?", isPresented: $showDeleteAccountConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete account", role: .destructive) {
+                Task { @MainActor in
+                    isDeletingAccount = true
+                    accountMessage = nil
+                    defer { isDeletingAccount = false }
+                    do {
+                        try await store.deleteAccountAndLocalData()
+                    } catch {
+                        accountMessage = error.localizedDescription
+                    }
+                }
+            }
+        } message: {
+            Text("This deletes your RestFit account (Firebase email login when applicable), signs you out, and clears on-device data. Google users should also revoke RestFit access in their Google Account if desired. See \(RestFitLegal.deleteAccountURL)")
         }
         .onAppear {
             name = store.profile.name
