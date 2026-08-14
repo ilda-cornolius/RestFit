@@ -33,13 +33,14 @@ struct ContentView: View {
     @State private var selectedTab: AppTab = .home
     @State private var showLogSleep = false
     @State private var showAddWeight = false
-    @State private var showOnboarding = false
 
     var body: some View {
         Group {
-            if showOnboarding {
+            if !store.isSignedIn {
+                TitleLoginView()
+            } else if !store.hasCompletedOnboarding {
                 OnboardingView {
-                    showOnboarding = false
+                    // Onboarding marks profile complete in the store.
                 }
             } else {
                 mainApp
@@ -47,9 +48,6 @@ struct ContentView: View {
         }
         .environment(store)
         .preferredColorScheme(.dark)
-        .onAppear {
-            showOnboarding = !store.hasCompletedOnboarding
-        }
         .sheet(isPresented: $showLogSleep) {
             LogSleepSheet()
                 .environment(store)
@@ -480,6 +478,35 @@ struct ProfileView: View {
 
                 WeightPanel()
                     .padding(.horizontal, 24)
+
+                SurfaceCard {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Account")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+                        if let user = store.authUser {
+                            Text(user.displayName)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                            Text(user.email)
+                                .font(.caption)
+                                .foregroundStyle(RestFitTheme.muted)
+                        }
+                        Button {
+                            store.signOut()
+                        } label: {
+                            Text("Sign out")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(RestFitTheme.coral)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(RestFitTheme.coral.opacity(0.15))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 24)
 
                 SurfaceCard {
                     VStack(alignment: .leading, spacing: 12) {

@@ -2,7 +2,16 @@
 
 Use this while filling out Google Play Console. Package name: `com.restfit.app`
 
+## App access (Play Console)
+
+RestFit requires sign-in (email/password via Firebase, or Google).
+
+- **Is any part of your app restricted?** → **Yes**
+- Easiest for reviewers: create an email/password test account in the app, then share that email + password
+- See `FIREBASE_SETUP.md` and `GOOGLE_SIGNIN_SETUP.md`
+
 ## Privacy policy URL
+
 
 After enabling GitHub Pages (Settings → Pages → Deploy from branch `main` / folder `/docs`):
 

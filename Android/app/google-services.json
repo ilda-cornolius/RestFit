@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "611638882841",
+    "project_id": "restfit-23f3f",
+    "storage_bucket": "restfit-23f3f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:611638882841:android:6a72c530b56687484c7088",
+        "android_client_info": {
+          "package_name": "com.restfit.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "611638882841-57bhpns56krogbkpuv4e0nnc4c5sppdk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.restfit.app",
+            "certificate_hash": "16e9b1b4b45dbb35878f2165d7f872fd1975a163"
+          }
+        },
+        {
+          "client_id": "611638882841-5kbs8fr6esesigddt8goh7ihg43s0lj6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.restfit.app",
+            "certificate_hash": "4473499b15c4a6b67d354a4bc34e40b4d017e88f"
+          }
+        },
+        {
+          "client_id": "611638882841-ga71hc4gb59tri26bnvn12unauc8uj4v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBwuvP2I3W2VWrpBLcNb0MS-sZEXC3iGQk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "611638882841-ga71hc4gb59tri26bnvn12unauc8uj4v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -17,8 +17,9 @@ enum RestFitLegal {
     RestFit (“the App”) helps you track personal wellness habits such as intermittent fasting, sleep, weight, workouts, and reminders.
 
     ## Summary
-    - RestFit stores your data **on your device**.
-    - We do **not** operate a RestFit account server that collects your fasting, sleep, weight, or workout logs.
+    - RestFit stores wellness logs **on your device**.
+    - Account sign-in (email/password) is handled by **Firebase Authentication**.
+    - We do **not** operate a separate RestFit server that stores your fasting, sleep, weight, or workout logs.
     - The App is **not** a medical device and does **not** diagnose, treat, cure, or prevent any disease.
 
     ## Information the App stores on your device

@@ -1,6 +1,7 @@
 import Foundation
 import OSLog
 import SwiftUI
+import SkipFirebaseCore
 
 /// A logger for the RestFit module.
 let logger: Logger = Logger(subsystem: "com.restfit.app", category: "RestFit")
@@ -31,6 +32,9 @@ public final class RestFitAppDelegate : Sendable {
 
     public func onInit() {
         logger.debug("onInit")
+        #if SKIP
+        FirebaseAuthService.configureIfNeeded()
+        #endif
     }
 
     public func onLaunch() {

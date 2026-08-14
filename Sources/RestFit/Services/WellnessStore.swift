@@ -76,6 +76,12 @@ import OSLog
         didSet { save() }
     }
 
+    var authUser: AuthUser? {
+        didSet { save() }
+    }
+
+    var isSignedIn: Bool { authUser != nil }
+
     var pomodoroPhase: PomodoroPhase = .focus
     var pomodoroStartedAt: Date?
     var pomodoroAccumulated: TimeInterval = 0.0
@@ -109,6 +115,7 @@ import OSLog
         isWorkingOut = loaded.isWorkingOut ?? false
         workoutStartedAt = loaded.workoutStartedAt
         activeWorkoutKind = loaded.activeWorkoutKind
+        authUser = loaded.authUser
 
         if sleepEntries.isEmpty && !loaded.profile.hasCompletedOnboarding {
             seedSampleData()
@@ -116,6 +123,19 @@ import OSLog
 
         refreshAlarms()
         refreshWorkoutNudges()
+    }
+
+    func signIn(_ user: AuthUser) {
+        authUser = user
+        if profile.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || profile.name == WellnessProfile.default.name {
+            profile.name = user.displayName
+        }
+    }
+
+    func signOut() {
+        FirebaseAuthService.signOut()
+        authUser = nil
     }
 
     func tick() {
@@ -1135,6 +1155,7 @@ private struct PersistedState: Codable {
     var isWorkingOut: Bool?
     var workoutStartedAt: Date?
     var activeWorkoutKind: WorkoutKind?
+    var authUser: AuthUser?
 }
 
 extension WellnessStore {
@@ -1169,7 +1190,8 @@ extension WellnessStore {
                 sleepStartedAt: nil,
                 isWorkingOut: false,
                 workoutStartedAt: nil,
-                activeWorkoutKind: nil
+                activeWorkoutKind: nil,
+                authUser: nil
             )
         }
     }
@@ -1198,7 +1220,8 @@ extension WellnessStore {
             sleepStartedAt: sleepStartedAt,
             isWorkingOut: isWorkingOut,
             workoutStartedAt: workoutStartedAt,
-            activeWorkoutKind: activeWorkoutKind
+            activeWorkoutKind: activeWorkoutKind,
+            authUser: authUser
         )
         do {
             let data = try JSONEncoder().encode(state)
