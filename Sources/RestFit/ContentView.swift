@@ -377,82 +377,93 @@ struct ProfileView: View {
     @State private var showDeleteAccountConfirm = false
     @State private var isDeletingAccount = false
     @State private var accountMessage: String?
+    @State private var showProfileSaved = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                AppHeader(name: store.profile.name, onProfile: onProfile)
+        ZStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    AppHeader(name: store.profile.name, onProfile: onProfile)
 
-                Text("Profile")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 24)
+                    Text("Profile")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
 
-                SurfaceCard {
-                    VStack(alignment: .leading, spacing: 16) {
-                        labeledField("Name", text: $name)
+                    SurfaceCard {
+                        VStack(alignment: .leading, spacing: 16) {
+                            labeledField("Name", text: $name)
 
-                        Toggle(isOn: Binding(
-                            get: { store.usesPounds },
-                            set: { newValue in
-                                store.setUsesPounds(newValue)
-                                targetWeight = String(format: "%.1f", store.targetWeightDisplay)
-                            }
-                        )) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Weight in pounds")
-                                    .foregroundStyle(.white)
-                                Text(store.usesPounds ? "Currently showing lb" : "Currently showing kg")
-                                    .font(.caption)
-                                    .foregroundStyle(RestFitTheme.muted)
-                            }
-                        }
-                        .tint(RestFitTheme.mint)
-
-                        labeledField("Target weight (\(store.weightUnitLabel))", text: $targetWeight)
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Fasting protocol")
-                                .font(.caption)
-                                .foregroundStyle(RestFitTheme.muted)
-                            Picker("Protocol", selection: $selectedProtocol) {
-                                ForEach(FastingProtocol.allCases) { proto in
-                                    Text(proto.displayName).tag(proto)
+                            Toggle(isOn: Binding(
+                                get: { store.usesPounds },
+                                set: { newValue in
+                                    store.setUsesPounds(newValue)
+                                    targetWeight = String(format: "%.1f", store.targetWeightDisplay)
+                                }
+                            )) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Weight in pounds")
+                                        .foregroundStyle(.white)
+                                    Text(store.usesPounds ? "Currently showing lb" : "Currently showing kg")
+                                        .font(.caption)
+                                        .foregroundStyle(RestFitTheme.muted)
                                 }
                             }
-                            .pickerStyle(.menu)
                             .tint(RestFitTheme.mint)
-                        }
 
-                        Toggle(isOn: $remindersEnabled) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Fasting reminders")
-                                    .foregroundStyle(.white)
-                                Text("Hydration and fast-complete notifications")
+                            labeledField("Target weight (\(store.weightUnitLabel))", text: $targetWeight)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Fasting protocol")
                                     .font(.caption)
                                     .foregroundStyle(RestFitTheme.muted)
+                                Picker("Protocol", selection: $selectedProtocol) {
+                                    ForEach(FastingProtocol.allCases) { proto in
+                                        Text(proto.displayName).tag(proto)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .tint(RestFitTheme.mint)
                             }
-                        }
-                        .tint(RestFitTheme.mint)
 
-                        MintButton(title: "Save Profile") {
-                            let entered = Double(targetWeight) ?? store.targetWeightDisplay
-                            store.updateProfile(
-                                name: name,
-                                targetWeight: store.kilogramsFromDisplay(entered),
-                                fastingProtocol: selectedProtocol
-                            )
-                            store.setRemindersEnabled(remindersEnabled)
-                            if remindersEnabled && store.isFasting {
-                                store.scheduleReminders()
-                            } else if !remindersEnabled {
-                                store.cancelReminders()
+                            Toggle(isOn: $remindersEnabled) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Fasting reminders")
+                                        .foregroundStyle(.white)
+                                    Text("Hydration and fast-complete notifications")
+                                        .font(.caption)
+                                        .foregroundStyle(RestFitTheme.muted)
+                                }
+                            }
+                            .tint(RestFitTheme.mint)
+
+                            MintButton(title: "Save Profile") {
+                                let entered = Double(targetWeight) ?? store.targetWeightDisplay
+                                store.updateProfile(
+                                    name: name,
+                                    targetWeight: store.kilogramsFromDisplay(entered),
+                                    fastingProtocol: selectedProtocol
+                                )
+                                store.setRemindersEnabled(remindersEnabled)
+                                if remindersEnabled && store.isFasting {
+                                    store.scheduleReminders()
+                                } else if !remindersEnabled {
+                                    store.cancelReminders()
+                                }
+                                withAnimation(.easeOut(duration: 0.18)) {
+                                    showProfileSaved = true
+                                }
+                                Task { @MainActor in
+                                    try? await Task.sleep(nanoseconds: 1_600_000_000)
+                                    withAnimation(.easeIn(duration: 0.18)) {
+                                        showProfileSaved = false
+                                    }
+                                }
                             }
                         }
                     }
-                }
-                .padding(.horizontal, 24)
+                    .padding(.horizontal, 24)
 
                 SurfaceCard {
                     VStack(alignment: .leading, spacing: 12) {
@@ -581,6 +592,25 @@ struct ProfileView: View {
                 .padding(.horizontal, 24)
             }
             .padding(.bottom, 120)
+            }
+
+            if showProfileSaved {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+
+                Text("Profile saved")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 18)
+                    .background(RestFitTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(RestFitTheme.mint.opacity(0.55), lineWidth: 1)
+                    )
+                    .shadow(color: RestFitTheme.mint.opacity(0.25), radius: 18.0, x: 0.0, y: 8.0)
+            }
         }
         .sheet(isPresented: $showPrivacyPolicy) {
             PrivacyPolicyView()

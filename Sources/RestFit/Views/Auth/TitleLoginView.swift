@@ -268,10 +268,12 @@ struct TitleLoginView: View {
         do {
             try await work()
         } catch {
-            if let authError = error as? GoogleAuthError, case .cancelled = authError {
+            if let authError = error as? GoogleAuthError {
+                if case .cancelled = authError { return }
+                errorMessage = authError.errorDescription ?? "Google sign-in failed. Try again."
                 return
             }
-            errorMessage = error.localizedDescription
+            errorMessage = FirebaseAuthError.userFacingMessage(from: error)
         }
     }
 }
