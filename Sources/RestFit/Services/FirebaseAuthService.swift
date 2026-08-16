@@ -131,7 +131,7 @@ enum FirebaseAuthService {
         return AuthUser(
             id: user.uid,
             email: email,
-            displayName: name.isEmpty ? "RestFit user" : name
+            displayName: name.isEmpty ? "Stella Fit user" : name
         )
     }
     #endif

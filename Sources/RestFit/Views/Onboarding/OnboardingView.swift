@@ -24,7 +24,7 @@ struct OnboardingView: View {
     private let pages: [OnboardingPage] = [
         OnboardingPage(
             icon: "moon.stars.fill",
-            title: "Welcome to RestFit",
+            title: "Welcome to Stella Fit",
             subtitle: "Track fasting, sleep, and weight in one calm dashboard built around your circadian rhythm.",
             tint: RestFitTheme.mint
         ),

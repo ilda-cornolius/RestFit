@@ -42,5 +42,5 @@
 ///
 /// To restore: add a dedicated tab or a row on the Workout/Alarm screens.
 enum PastFeatures {
-    static let note = "Meditation, Journal, Pomodoro, and To-Do were previous RestFit features. Source remains in the project for a future restore."
+    static let note = "Meditation, Journal, Pomodoro, and To-Do were previous Stella Fit features. Source remains in the project for a future restore."
 }

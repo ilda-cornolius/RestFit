@@ -1,10 +1,10 @@
-# RestFit Play Console checklist
+# Stella Fit Play Console checklist
 
 Use this while filling out Google Play Console. Package name: `com.restfit.app`
 
 ## App access (Play Console)
 
-RestFit requires sign-in (email/password via Firebase, or Google).
+Stella Fit requires sign-in (email/password via Firebase, or Google).
 
 - **Is any part of your app restricted?** → **Yes**
 - Easiest for reviewers: create an email/password test account in the app, then share that email + password
@@ -31,19 +31,19 @@ Delete data URL: `https://ilda-cornolius.github.io/RestFit/delete-data/`
 ## Store listing copy
 
 ### App name
-RestFit
+Stella Fit
 
 ### Short description (≤ 80 characters)
 Track fasting, sleep, weight, and workouts — all on your device.
 
 ### Full description
-RestFit is a simple wellness companion for everyday habits.
+Stella Fit is a simple wellness companion for everyday habits.
 
 Track intermittent fasting with a clear timer and common protocols (16:8, 18:6, 20:4). Log sleep and weight, plan Rest / Cardio / Workout days, and set wake or reminder alarms. Personalized tips are based on what you track in the app — not medical diagnosis.
 
-Everything stays on your device. No RestFit account required.
+Everything stays on your device. Sign-in is for your account only; wellness logs stay on device.
 
-RestFit is for general wellness tracking only. It is not a medical device and does not provide medical advice, diagnosis, or treatment.
+Stella Fit is for general wellness tracking only. It is not a medical device and does not provide medical advice, diagnosis, or treatment.
 
 ### What’s new (1.0.0)
 First Play Store release: fasting timer, sleep and weight logging, weekly workout planning, alarms, and on-device privacy.
@@ -56,12 +56,12 @@ First Play Store release: fasting timer, sleep and weight logging, weekly workou
 
 ## Data safety (suggested answers)
 
-Assumes current RestFit behavior: on-device storage, no RestFit backend, no ads SDK, no analytics SDK.
+Assumes current Stella Fit behavior: on-device storage, no Stella Fit backend, no ads SDK, no analytics SDK.
 
 | Question | Suggested answer |
 |----------|------------------|
 | Does your app collect or share user data? | **Yes** (collected on device / processed in-app) — declare categories below |
-| Is all user data encrypted in transit? | **No** user data is sent to RestFit servers. If asked and no network transmission of user data: mark that data is not collected for transfer, or follow Play’s current wording for “not collected” vs on-device only carefully |
+| Is all user data encrypted in transit? | **No** user data is sent to Stella Fit servers. If asked and no network transmission of user data: mark that data is not collected for transfer, or follow Play’s current wording for “not collected” vs on-device only carefully |
 | Do you provide a way for users to request deletion? | Users can clear app data / uninstall. Document that in the form |
 | Health and fitness | **Collected**: yes (sleep, weight, fasting/workout-related entries you log) — purpose: App functionality |
 | Personal info (name) | **Collected**: optional name you enter — purpose: App functionality |
@@ -74,13 +74,13 @@ Be consistent with the live Privacy Policy. If Play’s form distinguishes “co
 
 ## Content rating (IARC questionnaire tips)
 
-Answer honestly. Typical for RestFit:
+Answer honestly. Typical for Stella Fit:
 
 - No violence, sexual content, or hate
 - No user-to-user chat / social
 - No location sharing
 - Mild health/wellness themes only (tracking habits)
-- Not primarily for children → target age **18+** or **Teen** depending on questionnaire options; RestFit is intended for adults
+- Not primarily for children → target age **18+** or **Teen** depending on questionnaire options; Stella Fit is intended for adults
 
 Expected outcome is usually a low maturity rating (Everyone / PEGI 3 style), but follow the questionnaire exactly.
 

@@ -1,13 +1,14 @@
 # Firebase setup (email / password auth)
 
-RestFit uses **Firebase Authentication** for email + password sign-in and registration.
+Stella Fit uses **Firebase Authentication** for email + password sign-in and registration.
 
 ## 1. Create a Firebase project
 
 1. Open [Firebase Console](https://console.firebase.google.com/)
-2. Add project (e.g. **RestFit**)
+2. Add project (e.g. **Stella Fit**; existing project id may still be `restfit-…`)
 3. Add an **Android** app:
    - Package name: `com.restfit.app`
+   - App nickname: Stella Fit
    - Download `google-services.json`
 4. Replace this file:
 

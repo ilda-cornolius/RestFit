@@ -18,11 +18,11 @@ enum AppTab: String, Hashable, CaseIterable {
 
     var icon: String {
         switch self {
-        case .home: "house.fill"
-        case .fast: "clock.fill"
-        case .sleep: "moon.fill"
-        case .workout: "figure.run"
-        case .alarm: "alarm.fill"
+        case .home: "tab_home"
+        case .fast: "tab_fast"
+        case .sleep: "tab_sleep"
+        case .workout: "tab_workout"
+        case .alarm: "tab_alarm"
         case .profile: "person.fill"
         }
     }
@@ -210,8 +210,11 @@ struct BottomTabBar: View {
                                 .offset(y: -8)
                         }
 
-                        Image(systemName: tab.icon)
-                            .font(.title3)
+                        Image(tab.icon, bundle: .module)
+                            .resizable()
+                            .renderingMode(.template)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 24, height: 24)
                             .foregroundStyle(selectedTab == tab ? RestFitTheme.mint : RestFitTheme.faint)
 
                         Text(tab.title.uppercased())
@@ -553,7 +556,7 @@ struct ProfileView: View {
                                 .foregroundStyle(RestFitTheme.mint)
                         }
 
-                        Text("Clear on-device data removes wellness logs but keeps your sign-in (\(RestFitLegal.deleteDataURL)). Delete account removes your RestFit login and local data (\(RestFitLegal.deleteAccountURL)).")
+                        Text("Clear on-device data removes wellness logs but keeps your sign-in (\(RestFitLegal.deleteDataURL)). Delete account removes your Stella Fit login and local data (\(RestFitLegal.deleteAccountURL)).")
                             .font(.caption2)
                             .foregroundStyle(RestFitTheme.faint)
                     }
@@ -562,7 +565,7 @@ struct ProfileView: View {
 
                 SurfaceCard {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("About RestFit")
+                        Text("About Stella Fit")
                             .font(.body.weight(.semibold))
                             .foregroundStyle(.white)
                         Text("Track fasting, sleep, weight, and workouts in one place. Tips are based on what you log — not medical advice.")
@@ -626,7 +629,7 @@ struct ProfileView: View {
                 accountMessage = "On-device wellness data cleared. Your account is still signed in."
             }
         } message: {
-            Text("This deletes fasting, sleep, weight, workout, and other logs stored on this device. Your RestFit account sign-in is kept.")
+            Text("This deletes fasting, sleep, weight, workout, and other logs stored on this device. Your Stella Fit account sign-in is kept.")
         }
         .alert("Delete account?", isPresented: $showDeleteAccountConfirm) {
             Button("Cancel", role: .cancel) {}
@@ -643,7 +646,7 @@ struct ProfileView: View {
                 }
             }
         } message: {
-            Text("This deletes your RestFit account (Firebase email login when applicable), signs you out, and clears on-device data. Google users should also revoke RestFit access in their Google Account if desired. See \(RestFitLegal.deleteAccountURL)")
+            Text("This deletes your Stella Fit account (Firebase email login when applicable), signs you out, and clears on-device data. Google users should also revoke Stella Fit access in their Google Account if desired. See \(RestFitLegal.deleteAccountURL)")
         }
         .onAppear {
             name = store.profile.name

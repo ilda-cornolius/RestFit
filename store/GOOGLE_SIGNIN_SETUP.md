@@ -1,14 +1,14 @@
-# Google Sign-In setup for RestFit
+# Google Sign-In setup for Stella Fit
 
 Google Sign-In is required on the title screen. Until you add a Web client ID, the button stays disabled.
 
 ## 1. Google Cloud Console
 
 1. Open [Google Cloud Console](https://console.cloud.google.com/)
-2. Create (or select) a project, e.g. **RestFit**
+2. Create (or select) a project, e.g. **Stella Fit** (existing project id may still be `restfit-…`)
 3. **APIs & Services → OAuth consent screen**
    - User type: External
-   - App name: RestFit
+   - App name: Stella Fit
    - Support email: your email
    - Add scopes: `email`, `profile`, `openid`
    - Add your Google account as a **Test user** while the app is in Testing
@@ -17,7 +17,7 @@ Google Sign-In is required on the title screen. Until you add a Web client ID, t
 ### A. Web client (required)
 
 - Application type: **Web application**
-- Name: RestFit Web
+- Name: Stella Fit Web
 - Copy the **Client ID**
 - Paste it into:
 

@@ -1,8 +1,8 @@
-# RestFit
+# Stella Fit
 
 A cross-platform wellness app built with **Swift** and **SwiftUI**, targeting **iOS**, **Android**, and **macOS** from a single codebase using [Skip](https://skip.dev).
 
-RestFit helps you track **intermittent fasting**, **sleep quality**, and **weight**, with personalized guidance based on your daily rhythm.
+Stella Fit helps you track **intermittent fasting**, **sleep quality**, and **weight**, with personalized guidance based on your daily rhythm.
 
 ## Features
 

@@ -34,7 +34,7 @@ struct TitleLoginView: View {
                         AnimatedLoginLogo(animate: animate)
                             .padding(.bottom, 8)
 
-                        Text("RestFit")
+                        Text("Stella Fit")
                             .font(.system(size: 44, weight: .bold))
                             .foregroundStyle(.white)
                             .shadow(color: RestFitTheme.mint.opacity(0.35), radius: 16.0, x: 0.0, y: 0.0)

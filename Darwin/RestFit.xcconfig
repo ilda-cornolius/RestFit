@@ -15,11 +15,11 @@ INFOPLIST_FILE = Info.plist
 GENERATE_INFOPLIST_FILE = YES
 
 // The user-visible name of the app (localizable)
-//INFOPLIST_KEY_CFBundleDisplayName = App Name
+INFOPLIST_KEY_CFBundleDisplayName = Stella Fit
 //INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.utilities
 
-INFOPLIST_KEY_NSHealthShareUsageDescription = RestFit reads your sleep and weight from Apple Health to personalize your dashboard.
-INFOPLIST_KEY_NSUserNotificationsUsageDescription = RestFit sends reminders when your fast completes and hydration nudges during fasting.
+INFOPLIST_KEY_NSHealthShareUsageDescription = Stella Fit reads your sleep and weight from Apple Health to personalize your dashboard.
+INFOPLIST_KEY_NSUserNotificationsUsageDescription = Stella Fit sends reminders when your fast completes and hydration nudges during fasting.
 INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphone*] = YES
 INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphone*] = YES
 INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphone*] = YES

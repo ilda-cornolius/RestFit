@@ -149,7 +149,7 @@ import OSLog
         cancelReminders()
     }
 
-    /// Deletes Firebase account (if any), signs out, and clears all on-device RestFit data.
+    /// Deletes Firebase account (if any), signs out, and clears all on-device Stella Fit data.
     @MainActor
     func deleteAccountAndLocalData() async throws {
         try await FirebaseAuthService.deleteAccount()
