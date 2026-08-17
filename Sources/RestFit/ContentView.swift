@@ -397,6 +397,7 @@ struct SleepView: View {
 
 struct ProfileView: View {
     @Environment(WellnessStore.self) private var store
+    private var keyboard: AeroKeyboardController { AeroKeyboardController.shared }
     var onProfile: () -> Void = {}
     @State private var name: String = ""
     @State private var targetWeight: String = ""
@@ -621,7 +622,7 @@ struct ProfileView: View {
                 }
                 .padding(.horizontal, 24)
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, keyboard.isPresented ? 360.0 : 120.0)
             }
 
             if showProfileSaved {
@@ -734,6 +735,7 @@ struct LogSleepSheet: View {
 struct AddWeightSheet: View {
     @Environment(WellnessStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    private var keyboard: AeroKeyboardController { AeroKeyboardController.shared }
     @State private var weightText = ""
 
     var body: some View {
@@ -748,6 +750,7 @@ struct AddWeightSheet: View {
                 Spacer()
             }
             .padding(20)
+            .padding(.bottom, keyboard.isPresented ? 300.0 : 0.0)
             .navigationTitle("Add Weight")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

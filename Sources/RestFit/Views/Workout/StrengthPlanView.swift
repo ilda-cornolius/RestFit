@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StrengthPlanView: View {
     @Environment(WellnessStore.self) private var store
+    private var keyboard: AeroKeyboardController { AeroKeyboardController.shared }
     var onProfile: () -> Void = {}
     @State private var selectedDay: Weekday = .monday
     @State private var showComposer = false
@@ -67,7 +68,7 @@ struct StrengthPlanView: View {
                         .padding(.horizontal, 24)
                 }
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, keyboard.isPresented ? 360.0 : 120.0)
         }
         .onAppear {
             selectedDay = store.todayWeekday

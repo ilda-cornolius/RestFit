@@ -10,6 +10,7 @@ struct OnboardingPage: Identifiable {
 
 struct OnboardingView: View {
     @Environment(WellnessStore.self) private var store
+    private var keyboard: AeroKeyboardController { AeroKeyboardController.shared }
     @State private var pageIndex = 0
     @State private var name = ""
     @State private var targetWeight = "143.3"
@@ -182,7 +183,7 @@ struct OnboardingView: View {
                 #endif
             }
             .padding(.horizontal, 24)
-            .padding(.bottom, 24)
+            .padding(.bottom, keyboard.isPresented ? 340.0 : 24.0)
         }
     }
 

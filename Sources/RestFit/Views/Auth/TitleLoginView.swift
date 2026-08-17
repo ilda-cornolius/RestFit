@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.imePadding
 
 struct TitleLoginView: View {
     @Environment(WellnessStore.self) private var store
+    private var keyboard: AeroKeyboardController { AeroKeyboardController.shared }
     @State private var email = ""
     @State private var password = ""
     @State private var isWorking = false
@@ -28,19 +29,21 @@ struct TitleLoginView: View {
             GeometryReader { geo in
                 let contentMax = min(520.0, max(320.0, geo.size.width - 24.0))
                 let wide = geo.size.width >= 600.0
+                let compact = geo.size.height < 740.0 || geo.size.width < 360.0
+                let keyboardOpen = keyboard.isPresented
+                let centerVertically = !showEmailForm && !keyboardOpen
+                let keyboardInset = AeroKeyboardLayout.contentInset(compact: compact, keyboardVisible: keyboardOpen)
                 ScrollView {
                     VStack(spacing: 0) {
-                        // Keep content top-aligned so the keyboard can shrink the
-                        // viewport without Spacers shoving the form off-screen.
-                        if !showEmailForm {
-                            Spacer(minLength: wide ? 48.0 : 24.0)
+                        if centerVertically {
+                            Spacer(minLength: max(16.0, (geo.size.height - loginBlockHeight(wide: wide, compact: compact)) * 0.5))
                         } else {
-                            Spacer(minLength: 12.0)
+                            Spacer(minLength: keyboardOpen ? 8.0 : (compact ? 12.0 : 24.0))
                         }
 
                         AnimatedLoginLogo(animate: animate)
                             .scaleEffect(showEmailForm ? 0.72 : 1.0)
-                            .frame(height: showEmailForm ? 108.0 : 150.0)
+                            .frame(height: showEmailForm ? (compact ? 92.0 : 108.0) : (compact ? 120.0 : 150.0))
                             .padding(.bottom, showEmailForm ? 4.0 : 8.0)
 
                         Text(RestFitLegal.appDisplayName)
@@ -87,12 +90,17 @@ struct TitleLoginView: View {
                         .padding(.top, showEmailForm ? 20.0 : 32.0)
                         .padding(.bottom, 32.0)
 
-                        Spacer(minLength: 24.0)
+                        if centerVertically {
+                            Spacer(minLength: max(16.0, (geo.size.height - loginBlockHeight(wide: wide, compact: compact)) * 0.5))
+                        } else {
+                            Spacer(minLength: 24.0)
+                        }
                     }
                     .frame(maxWidth: contentMax)
                     .frame(maxWidth: .infinity)
+                    .padding(.bottom, keyboardInset)
                 }
-                .id("login-\(Int(geo.size.width))x\(Int(geo.size.height))-\(showEmailForm)")
+                .id("login-\(Int(geo.size.width))x\(Int(geo.size.height))-\(showEmailForm)-\(keyboardOpen)")
             }
         }
         .preferredColorScheme(.dark)
@@ -266,6 +274,13 @@ struct TitleLoginView: View {
             }
             errorMessage = FirebaseAuthError.userFacingMessage(from: error)
         }
+    }
+
+    private func loginBlockHeight(wide: Bool, compact: Bool) -> CGFloat {
+        if showEmailForm {
+            return compact ? 520.0 : 580.0
+        }
+        return compact ? 460.0 : (wide ? 520.0 : 500.0)
     }
 }
 
