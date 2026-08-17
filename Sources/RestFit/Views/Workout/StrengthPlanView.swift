@@ -12,12 +12,9 @@ struct StrengthPlanView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                AppHeader(name: store.profile.name, onProfile: onProfile)
+                AppHeader(section: "Workout", onProfile: onProfile)
 
                 HStack {
-                    Text("Workout")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.white)
                     Spacer()
                     Text(store.weeklyWorkoutLabel)
                         .font(.caption.weight(.semibold))

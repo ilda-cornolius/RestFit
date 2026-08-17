@@ -120,7 +120,7 @@ struct OnboardingView: View {
                     .foregroundStyle(.white)
                     .padding(.top, 48)
 
-                setupField("Your name", text: $name)
+                setupField("Your name", text: $name, mode: AeroKeyboardMode.text)
 
                 Toggle(isOn: $usesPounds) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -142,7 +142,7 @@ struct OnboardingView: View {
                     }
                 }
 
-                setupField("Target weight (\(usesPounds ? "lb" : "kg"))", text: $targetWeight)
+                setupField("Target weight (\(usesPounds ? "lb" : "kg"))", text: $targetWeight, mode: AeroKeyboardMode.decimal)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Fasting protocol")
@@ -186,28 +186,21 @@ struct OnboardingView: View {
         }
     }
 
-    private func setupField(_ title: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(RestFitTheme.muted)
-            TextField(title, text: text)
-                .padding(12)
-                .background(RestFitTheme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(RestFitTheme.line, lineWidth: 1)
-                )
-                .foregroundStyle(.white)
-        }
+    private func setupField(_ title: String, text: Binding<String>, mode: AeroKeyboardMode = .text) -> some View {
+        AeroTextField(title: title, text: text, mode: mode, placeholder: title, minHeight: 48.0)
+    }
+
+    private var prefilledName: String {
+        WellnessGuide.personName(from: store.profile.name)
+            ?? WellnessGuide.personName(from: store.authUser?.displayName ?? "")
+            ?? ""
     }
 
     private func advance() {
         if pageIndex < pages.count {
             pageIndex += 1
             if pageIndex == pages.count {
-                name = store.profile.name
+                name = prefilledName
                 usesPounds = store.usesPounds
                 targetWeight = String(format: "%.1f", store.targetWeightDisplay)
             }
@@ -221,9 +214,9 @@ struct OnboardingView: View {
         isFinishing = true
         store.setUsesPounds(usesPounds)
         let entered = Double(targetWeight) ?? store.targetWeightDisplay
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let authName = store.authUser?.displayName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let resolvedName = trimmedName.isEmpty ? (authName.isEmpty ? "You" : authName) : trimmedName
+        let resolvedName = WellnessGuide.personName(from: name)
+            ?? WellnessGuide.personName(from: store.authUser?.displayName ?? "")
+            ?? ""
         store.completeOnboarding(
             name: resolvedName,
             targetWeight: store.kilogramsFromDisplay(entered),

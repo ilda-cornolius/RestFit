@@ -3,28 +3,86 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stella Fit</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background: #0b0c1e;
-      color: #f4f6ff;
-      padding: 48px 20px;
-      line-height: 1.6;
-    }
-    a { color: #2ee59d; }
-    main { max-width: 560px; margin: 0 auto; }
-  </style>
+  <title>Stella Fit — Fasting, sleep, and workouts</title>
+  <meta name="description" content="Stella Fit tracks fasting, sleep, weight, and workouts on your device — a calm wellness companion with mint-forward design." />
+  <link rel="icon" href="./assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./assets/site.css" />
 </head>
 <body>
-  <main>
-    <h1>Stella Fit</h1>
-    <ul>
-      <li><a href="./privacy/">Privacy Policy</a></li>
-      <li><a href="./delete-account/">Delete account</a></li>
-      <li><a href="./delete-data/">Delete data (keep account)</a></li>
+  <header class="site-nav">
+    <div class="site-nav__inner">
+      <a class="brand" href="./">
+        <img class="brand__mark" src="./assets/icon.png" width="36" height="36" alt="" />
+        <span class="brand__name">Stella <span>Fit</span></span>
+      </a>
+      <nav class="nav-links" aria-label="Site">
+        <a href="./privacy/">Privacy</a>
+        <a href="./delete-account/">Delete account</a>
+        <a href="./delete-data/">Delete data</a>
+        <a href="https://github.com/ilda-cornolius/RestFit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero__visual" aria-hidden="true">
+      <div class="orb orb--mint"></div>
+      <div class="orb orb--coral"></div>
+      <div class="mark-stage">
+        <div class="ring"></div>
+        <img src="./assets/icon.png" width="512" height="512" alt="" />
+      </div>
+    </div>
+
+    <div class="hero__copy">
+      <div class="hero__copy-inner">
+        <h1 class="hero__brand">Stella <span>Fit</span></h1>
+        <p class="hero__title">Your night, your fast, your rhythm — tracked where you are.</p>
+        <p class="hero__lede">
+          A calm Android companion for intermittent fasting, sleep, weight, and workouts.
+          Wellness logs stay on your device.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn--mint" href="./privacy/">Privacy Policy</a>
+          <a class="btn btn--ghost" href="https://github.com/ilda-cornolius/RestFit">View on GitHub</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section__head">
+      <h2>Built for everyday rhythm</h2>
+      <p>One app for the habits that shape how you feel tomorrow.</p>
+    </div>
+    <ul class="feature-list">
+      <li>
+        <h3>Fasting</h3>
+        <p>Live timer and common protocols (16:8, 18:6, 20:4) with clear progress.</p>
+      </li>
+      <li>
+        <h3>Sleep &amp; weight</h3>
+        <p>Log nights and weigh-ins, then see trends that stay private on-device.</p>
+      </li>
+      <li>
+        <h3>Workouts &amp; alarms</h3>
+        <p>Plan Rest / Cardio / Lift days and set wake or wind-down reminders.</p>
+      </li>
     </ul>
-  </main>
+  </section>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <span>Stella Fit · general wellness tracking only — not medical advice.</span>
+      <span>
+        <a href="./privacy/">Privacy</a> ·
+        <a href="./delete-account/">Delete account</a> ·
+        <a href="./delete-data/">Delete data</a>
+      </span>
+    </div>
+  </footer>
 </body>
 </html>

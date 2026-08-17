@@ -7,7 +7,7 @@ struct MeditationView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                AppHeader(name: store.profile.name)
+                AppHeader(section: "Meditation")
 
                 Text("Meditation")
                     .font(.title2.weight(.semibold))

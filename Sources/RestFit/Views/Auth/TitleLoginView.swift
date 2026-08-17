@@ -1,7 +1,6 @@
 import SwiftUI
 #if SKIP
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.imePadding
 #endif
 
 struct TitleLoginView: View {
@@ -28,24 +27,35 @@ struct TitleLoginView: View {
 
             GeometryReader { geo in
                 let contentMax = min(520.0, max(320.0, geo.size.width - 24.0))
+                let wide = geo.size.width >= 600.0
                 ScrollView {
                     VStack(spacing: 0) {
-                        Spacer(minLength: 0)
+                        // Keep content top-aligned so the keyboard can shrink the
+                        // viewport without Spacers shoving the form off-screen.
+                        if !showEmailForm {
+                            Spacer(minLength: wide ? 48.0 : 24.0)
+                        } else {
+                            Spacer(minLength: 12.0)
+                        }
 
                         AnimatedLoginLogo(animate: animate)
-                            .padding(.bottom, 8)
+                            .scaleEffect(showEmailForm ? 0.72 : 1.0)
+                            .frame(height: showEmailForm ? 108.0 : 150.0)
+                            .padding(.bottom, showEmailForm ? 4.0 : 8.0)
 
                         Text(RestFitLegal.appDisplayName)
-                            .font(.system(size: geo.size.width >= 600.0 ? 52.0 : 44.0, weight: .bold))
+                            .font(.system(size: wide ? (showEmailForm ? 40.0 : 52.0) : (showEmailForm ? 34.0 : 44.0), weight: .bold))
                             .foregroundStyle(.white)
                             .shadow(color: RestFitTheme.mint.opacity(0.35), radius: 16.0, x: 0.0, y: 0.0)
 
-                        Text("Track fasting, sleep, and workouts.\nSign in or create an account to continue.")
-                            .font(.body)
-                            .foregroundStyle(RestFitTheme.muted)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 28)
-                            .padding(.top, 8)
+                        if !showEmailForm {
+                            Text("Track fasting, sleep, and workouts.\nSign in or create an account to continue.")
+                                .font(.body)
+                                .foregroundStyle(RestFitTheme.muted)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 28)
+                                .padding(.top, 8)
+                        }
 
                         VStack(spacing: 14) {
                             if let errorMessage {
@@ -74,16 +84,15 @@ struct TitleLoginView: View {
                                 .padding(.top, 8)
                         }
                         .padding(.horizontal, 24)
-                        .padding(.top, 32)
+                        .padding(.top, showEmailForm ? 20.0 : 32.0)
+                        .padding(.bottom, 32.0)
 
-                        Spacer(minLength: 0)
+                        Spacer(minLength: 24.0)
                     }
-                    .offset(y: -16.0)
                     .frame(maxWidth: contentMax)
                     .frame(maxWidth: .infinity)
-                    .frame(minHeight: geo.size.height)
                 }
-                .id("login-\(Int(geo.size.width))x\(Int(geo.size.height))")
+                .id("login-\(Int(geo.size.width))x\(Int(geo.size.height))-\(showEmailForm)")
             }
         }
         .preferredColorScheme(.dark)
@@ -180,29 +189,8 @@ struct TitleLoginView: View {
             .restFitOnHover { hoverBack = $0 }
             .disabled(isWorking)
 
-            fieldLabel("Email")
-            TextField("Email", text: $email)
-                #if os(iOS)
-                .textInputAutocapitalization(.never)
-                .keyboardType(.emailAddress)
-                #endif
-                .font(.body)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 20)
-                .frame(minHeight: 58)
-                .modifier(LoginHoverLook(active: hoverEmail, mintFill: false, corner: 16.0))
-                .restFitOnHover { hoverEmail = $0 }
-
-            fieldLabel("Password")
-            SecureField("Password", text: $password)
-                .font(.body)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 20)
-                .frame(minHeight: 58)
-                .modifier(LoginHoverLook(active: hoverPassword, mintFill: false, corner: 16.0))
-                .restFitOnHover { hoverPassword = $0 }
+            AeroTextField(title: "Email", text: $email, mode: AeroKeyboardMode.email, placeholder: "you@email.com")
+            AeroTextField(title: "Password", text: $password, mode: AeroKeyboardMode.secure, placeholder: "Password")
 
             Button {
                 Task { await signInEmail() }
@@ -404,25 +392,24 @@ private struct AnimatedLoginLogo: View {
 }
 
 extension View {
+    /// Hover polish for desktop/iPad pointer devices only.
+    /// On Android, a `pointerInput` hover loop steals taps from TextFields and buttons.
     func restFitOnHover(_ handler: @escaping (Bool) -> Void) -> some View {
         #if SKIP
-        return composeModifier { modifier in
-            modifier.pointerInput(true) {
-                awaitPointerEventScope {
-                    while true {
-                        let event = awaitPointerEvent()
-                        let type = event.type
-                        if type == PointerEventType.Enter || type == PointerEventType.Press {
-                            handler(true)
-                        } else if type == PointerEventType.Exit || type == PointerEventType.Release {
-                            handler(false)
-                        }
-                    }
-                }
-            }
-        }
+        return self
         #else
         return onHover(perform: handler)
+        #endif
+    }
+
+    /// Lift content above the software keyboard on Android (edge-to-edge + Fold).
+    func restFitImePadding() -> some View {
+        #if SKIP
+        return composeModifier { modifier in
+            modifier.imePadding()
+        }
+        #else
+        return self
         #endif
     }
 }

@@ -4,46 +4,31 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Stella Fit Privacy Policy</title>
-  <style>
-    :root {
-      --bg: #0b0c1e;
-      --text: #f4f6ff;
-      --muted: #9aa3c7;
-      --mint: #2ee59d;
-      --coral: #ff7676;
-      --card: #151734;
-    }
-    body {
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background: radial-gradient(1200px 600px at 10% -10%, #1a2250 0%, var(--bg) 55%);
-      color: var(--text);
-      line-height: 1.6;
-    }
-    main {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 48px 20px 80px;
-    }
-    h1, h2 { line-height: 1.25; }
-    h1 { font-size: 2rem; margin-bottom: 0.25rem; }
-    h2 { font-size: 1.15rem; margin-top: 2rem; color: var(--mint); }
-    p, li { color: var(--muted); }
-    .meta { color: var(--muted); font-size: 0.95rem; }
-    .disclaimer {
-      margin: 1.25rem 0 1.75rem;
-      padding: 1rem 1.1rem;
-      border-radius: 12px;
-      background: rgba(255, 118, 118, 0.12);
-      color: #ffc2c2;
-      border: 1px solid rgba(255, 118, 118, 0.35);
-    }
-    a { color: var(--mint); }
-    ul { padding-left: 1.2rem; }
-  </style>
+  <meta name="description" content="Privacy Policy for Stella Fit — on-device wellness tracking with Firebase and Google Sign-In." />
+  <link rel="icon" href="../assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/site.css" />
 </head>
 <body>
-  <main>
+  <header class="site-nav">
+    <div class="site-nav__inner">
+      <a class="brand" href="../">
+        <img class="brand__mark" src="../assets/icon.png" width="36" height="36" alt="" />
+        <span class="brand__name">Stella <span>Fit</span></span>
+      </a>
+      <nav class="nav-links" aria-label="Site">
+        <a href="../privacy/" aria-current="page">Privacy</a>
+        <a href="../delete-account/">Delete account</a>
+        <a href="../delete-data/">Delete data</a>
+        <a href="https://github.com/ilda-cornolius/RestFit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <p class="page__kicker">Legal</p>
     <h1>Privacy Policy for Stella Fit</h1>
     <p class="meta"><strong>Last updated:</strong> August 14, 2026</p>
     <div class="disclaimer">
@@ -111,5 +96,16 @@
     <h2>Contact</h2>
     <p>Questions about privacy: open an issue on the <a href="https://github.com/ilda-cornolius/RestFit">Stella Fit GitHub repository</a>.</p>
   </main>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <span>Stella Fit · Privacy</span>
+      <span>
+        <a href="../">Home</a> ·
+        <a href="../delete-account/">Delete account</a> ·
+        <a href="../delete-data/">Delete data</a>
+      </span>
+    </div>
+  </footer>
 </body>
 </html>

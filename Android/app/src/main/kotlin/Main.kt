@@ -15,6 +15,7 @@ import androidx.activity.ComponentActivity
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.MaterialTheme
 import androidx.core.app.ActivityCompat
+import androidx.core.view.WindowCompat
 
 internal val logger: SkipLogger = SkipLogger(subsystem = "rest.fit", category = "RestFit")
 
@@ -59,6 +61,9 @@ open class MainActivity: AppCompatActivity {
         title = "Stella Fit"
         UIApplication.launch(this)
         enableEdgeToEdge()
+        // Keep IME insets flowing to Compose so keyboards don't shove content under
+        // the fold/unfold window when edge-to-edge is enabled.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
             val saveableStateHolder = rememberSaveableStateHolder()
@@ -169,7 +174,10 @@ internal fun PresentationRootView(context: ComposeContext) {
     PresentationRoot(defaultColorScheme = colorScheme, context = context) { ctx ->
         SyncSystemBarsWithTheme()
         val contentContext = ctx.content()
-        Box(modifier = ctx.modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = ctx.modifier.fillMaxSize().imePadding(),
+            contentAlignment = Alignment.Center
+        ) {
             AppRootView().Compose(context = contentContext)
         }
     }

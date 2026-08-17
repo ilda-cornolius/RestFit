@@ -87,6 +87,13 @@ import OSLog
 
     var isSignedIn: Bool { authUser != nil }
 
+    /// First name from the in-app profile, Google account, or email registration.
+    var greetingName: String {
+        WellnessGuide.firstName(from: profile.name)
+            ?? WellnessGuide.firstName(from: authUser?.displayName ?? "")
+            ?? ""
+    }
+
     var pomodoroPhase: PomodoroPhase = .focus
     var pomodoroStartedAt: Date?
     var pomodoroAccumulated: TimeInterval = 0.0
@@ -134,18 +141,26 @@ import OSLog
 
         refreshAlarms()
         refreshWorkoutNudges()
+        if let user = authUser {
+            applyAuthNameIfNeeded(from: user)
+        }
     }
 
     func signIn(_ user: AuthUser) {
         if let owner = dataOwnerUserId, owner != user.id {
-            resetWellnessDataToDefaults(name: user.displayName, completedOnboarding: false)
+            resetWellnessDataToDefaults(name: WellnessGuide.personName(from: user.displayName) ?? "", completedOnboarding: false)
             cancelReminders()
         }
         authUser = user
         dataOwnerUserId = user.id
-        if profile.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            profile.name = user.displayName
-        }
+        applyAuthNameIfNeeded(from: user)
+    }
+
+    /// Prefer a Google / Firebase display name when the profile still has no real name.
+    private func applyAuthNameIfNeeded(from user: AuthUser) {
+        guard WellnessGuide.personName(from: profile.name) == nil else { return }
+        guard let incoming = WellnessGuide.personName(from: user.displayName) else { return }
+        profile.name = incoming
     }
 
     func signOut() {
@@ -157,7 +172,7 @@ import OSLog
     func clearOnDeviceDataKeepingAccount() {
         let signedIn = authUser
         resetWellnessDataToDefaults(
-            name: signedIn?.displayName ?? "",
+            name: WellnessGuide.personName(from: signedIn?.displayName ?? "") ?? "",
             completedOnboarding: true
         )
         authUser = signedIn

@@ -3,7 +3,7 @@ import SwiftUI
 enum AppTab: String, Hashable, CaseIterable {
     case home, fast, sleep, workout, alarm, profile
 
-    static let barTabs: [AppTab] = [.home, .fast, .sleep, .workout, .alarm]
+    static let barTabs: [AppTab] = [.home, .fast, .sleep, .workout, .alarm, .profile]
 
     var title: String {
         switch self {
@@ -47,6 +47,9 @@ struct ContentView: View {
             }
         }
         .environment(store)
+        .overlay {
+            AeroKeyboardOverlay()
+        }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showLogSleep) {
             LogSleepSheet()
@@ -131,10 +134,8 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                AppHeader(name: store.profile.name, onProfile: onProfile)
-
                 WelcomeSection(
-                    greeting: WellnessGuide.greeting(name: store.profile.name),
+                    greeting: WellnessGuide.greeting(name: store.greetingName),
                     headline: WellnessGuide.rhythmHeadline(
                         sleepScores: store.weeklySleepScores,
                         fastingProgress: store.fastingProgress
@@ -210,6 +211,7 @@ struct CardioDayReminderCard: View {
 }
 
 struct BottomTabBar: View {
+    @Environment(WellnessStore.self) private var store
     @Binding var selectedTab: AppTab
 
     var body: some View {
@@ -218,39 +220,58 @@ struct BottomTabBar: View {
                 Button {
                     selectedTab = tab
                 } label: {
-                    VStack(spacing: 6) {
-                        if selectedTab == tab {
-                            Circle()
-                                .fill(RestFitTheme.mint)
-                                .frame(width: 6, height: 6)
-                                .offset(y: -8)
-                        }
-
-                        Image(tab.icon, bundle: .module)
-                            .resizable()
-                            .renderingMode(.template)
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 24, height: 24)
-                            .foregroundStyle(selectedTab == tab ? RestFitTheme.mint : RestFitTheme.faint)
+                    VStack(spacing: 4.0) {
+                        tabIcon(tab)
+                            .overlay(alignment: .top) {
+                                if selectedTab == tab {
+                                    Circle()
+                                        .fill(RestFitTheme.mint)
+                                        .frame(width: 5.0, height: 5.0)
+                                        .offset(y: -7.0)
+                                }
+                            }
 
                         Text(tab.title.uppercased())
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 10.0, weight: .bold))
                             .tracking(0.5)
                             .foregroundStyle(selectedTab == tab ? RestFitTheme.mint : RestFitTheme.faint)
                     }
                     .frame(maxWidth: .infinity)
+                    .padding(.top, 4.0)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 16)
-        .padding(.bottom, 28)
+        .padding(.horizontal, 8.0)
+        .padding(.top, 10.0)
+        .padding(.bottom, 8.0)
         .background(RestFitTheme.surface.opacity(0.95))
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(RestFitTheme.line.opacity(0.4))
                 .frame(height: 1)
+        }
+    }
+
+    @ViewBuilder
+    private func tabIcon(_ tab: AppTab) -> some View {
+        if tab == .profile {
+            let initial = store.greetingName.trimmingCharacters(in: .whitespacesAndNewlines)
+            Circle()
+                .fill(selectedTab == .profile ? RestFitTheme.mint.opacity(0.22) : RestFitTheme.line)
+                .frame(width: 22.0, height: 22.0)
+                .overlay {
+                    Text(String((initial.isEmpty ? "Y" : initial).prefix(1)).uppercased())
+                        .font(.system(size: 11.0, weight: .bold))
+                        .foregroundStyle(selectedTab == .profile ? RestFitTheme.mint : RestFitTheme.faint)
+                }
+        } else {
+            Image(tab.icon, bundle: .module)
+                .resizable()
+                .renderingMode(.template)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 22.0, height: 22.0)
+                .foregroundStyle(selectedTab == tab ? RestFitTheme.mint : RestFitTheme.faint)
         }
     }
 }
@@ -262,13 +283,7 @@ struct FastingView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                AppHeader(name: store.profile.name, onProfile: onProfile)
-
-                Text("Fasting")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 24)
+                AppHeader(section: "Fasting", onProfile: onProfile)
 
                 FastingCircleButton()
                     .padding(.horizontal, 24)
@@ -323,12 +338,9 @@ struct SleepView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                AppHeader(name: store.profile.name, onProfile: onProfile)
+                AppHeader(section: "Sleep", onProfile: onProfile)
 
                 HStack {
-                    Text("Sleep")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.white)
                     Spacer()
                     Button("Manual log") {
                         onManualLog()
@@ -402,17 +414,18 @@ struct ProfileView: View {
         ZStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    AppHeader(name: store.profile.name, onProfile: onProfile)
+                    AppHeader(section: "Profile", onProfile: onProfile)
 
-                    Text("Profile")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 24)
+                    ProfileAvatar(
+                        name: WellnessGuide.firstName(from: name) ?? store.greetingName,
+                        photoURL: store.authUser?.photoURL
+                    )
+                    .padding(.top, 4.0)
 
                     SurfaceCard {
                         VStack(alignment: .leading, spacing: 16) {
                             labeledField("Name", text: $name)
+                            labeledField("Target weight (\(store.weightUnitLabel))", text: $targetWeight, mode: AeroKeyboardMode.decimal)
 
                             Toggle(isOn: Binding(
                                 get: { store.usesPounds },
@@ -430,8 +443,6 @@ struct ProfileView: View {
                                 }
                             }
                             .tint(RestFitTheme.mint)
-
-                            labeledField("Target weight (\(store.weightUnitLabel))", text: $targetWeight)
 
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Fasting protocol")
@@ -672,22 +683,8 @@ struct ProfileView: View {
         }
     }
 
-    private func labeledField(_ title: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(RestFitTheme.muted)
-            TextField(title, text: text)
-                .textFieldStyle(.plain)
-                .padding(12)
-                .background(RestFitTheme.card)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(RestFitTheme.line, lineWidth: 1)
-                )
-                .foregroundStyle(.white)
-        }
+    private func labeledField(_ title: String, text: Binding<String>, mode: AeroKeyboardMode = .text) -> some View {
+        AeroTextField(title: title, text: text, mode: mode, placeholder: title, minHeight: 48.0)
     }
 }
 
@@ -741,9 +738,16 @@ struct AddWeightSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                TextField("Weight in \(store.weightUnitLabel)", text: $weightText)
+            VStack(alignment: .leading, spacing: 16) {
+                AeroTextField(
+                    title: "Weight in \(store.weightUnitLabel)",
+                    text: $weightText,
+                    mode: AeroKeyboardMode.decimal,
+                    placeholder: "0.0"
+                )
+                Spacer()
             }
+            .padding(20)
             .navigationTitle("Add Weight")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -761,6 +765,9 @@ struct AddWeightSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .overlay {
+            AeroKeyboardOverlay()
+        }
         .onAppear {
             weightText = String(format: "%.1f", store.currentWeightDisplay)
         }

@@ -9,6 +9,10 @@ enum RestFitTheme {
     static let muted = Color(red: 0.45, green: 0.47, blue: 0.62)
     static let mint = Color(red: 0.18, green: 0.898, blue: 0.616)
     static let coral = Color(red: 1.0, green: 0.463, blue: 0.463)
+
+    static func manrope(size: CGFloat, bold: Bool) -> Font {
+        .custom(bold ? "Manrope-Bold" : "Manrope-SemiBold", size: size)
+    }
 }
 
 struct SurfaceCard<Content: View>: View {

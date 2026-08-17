@@ -108,8 +108,11 @@ enum GoogleAuthService {
         )
         let email = googleId.id
         let id = email.isEmpty ? UUID().uuidString : email
-        let displayName = googleId.displayName ?? email
-        return AuthUser(id: id, email: email, displayName: displayName)
+        let given = (googleId.givenName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let full = (googleId.displayName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = !full.isEmpty ? full : (!given.isEmpty ? given : email)
+        let photoURL = googleId.profilePictureUri?.toString()
+        return AuthUser(id: id, email: email, displayName: displayName, photoURL: photoURL)
     }
 
     private static func isNoCredential(_ error: Error) -> Bool {

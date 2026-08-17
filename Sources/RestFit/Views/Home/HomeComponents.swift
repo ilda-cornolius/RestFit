@@ -1,48 +1,81 @@
 import SwiftUI
 
 struct AppHeader: View {
-    let name: String
+    let section: String
     var onProfile: () -> Void = {}
 
     var body: some View {
-        HStack {
-            HStack(spacing: 10) {
-                Image(systemName: "moon.stars.fill")
-                    .font(.body)
+        HStack(alignment: .center, spacing: 10.0) {
+            Image("app_mark", bundle: .module)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 32.0, height: 32.0)
+                .clipShape(RoundedRectangle(cornerRadius: 9.0, style: .continuous))
+
+            HStack(spacing: 0) {
+                Text("Stella ")
+                    .font(RestFitTheme.manrope(size: 20.0, bold: false))
+                    .foregroundStyle(.white)
+                Text("Fit")
+                    .font(RestFitTheme.manrope(size: 20.0, bold: false))
                     .foregroundStyle(RestFitTheme.mint)
-                    .frame(width: 32, height: 32)
-                    .background(RestFitTheme.mint.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                HStack(spacing: 0) {
-                    Text("Rest")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text("Fit")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(RestFitTheme.mint)
-                }
+                Text(": \(section)")
+                    .font(RestFitTheme.manrope(size: 20.0, bold: false))
+                    .foregroundStyle(.white)
             }
+            .lineLimit(1)
 
-            Spacer()
-
-            Button(action: onProfile) {
-                Circle()
-                    .fill(RestFitTheme.line)
-                    .frame(width: 36, height: 36)
-                    .overlay {
-                        Text(String(name.prefix(1)).uppercased())
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                    }
-                    .overlay(Circle().stroke(RestFitTheme.line, lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Profile")
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 24)
         .padding(.top, 28)
         .padding(.bottom, 8)
+    }
+}
+
+struct ProfileAvatar: View {
+    let name: String
+    var photoURL: String? = nil
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(RestFitTheme.mint.opacity(0.16))
+
+            if let photoURL, !photoURL.isEmpty, let url = URL(string: photoURL) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    initialLabel
+                }
+                .frame(width: 96.0, height: 96.0)
+                .clipShape(Circle())
+            } else {
+                initialLabel
+            }
+        }
+        .frame(width: 96.0, height: 96.0)
+        .overlay(
+            Circle()
+                .stroke(RestFitTheme.mint.opacity(0.5), lineWidth: 1.5)
+        )
+        .frame(maxWidth: .infinity)
+    }
+
+    private var initialLabel: some View {
+        Text(initial)
+            .font(RestFitTheme.manrope(size: 36.0, bold: true))
+            .foregroundStyle(RestFitTheme.mint)
+    }
+
+    private var initial: String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return "S"
+        }
+        return String(trimmed.prefix(1)).uppercased()
     }
 }
 
@@ -51,18 +84,72 @@ struct WelcomeSection: View {
     let headline: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(greeting.uppercased())
-                .font(.caption2.weight(.medium))
-                .tracking(2)
-                .foregroundStyle(RestFitTheme.faint)
+        VStack(alignment: .leading, spacing: 16.0) {
+            HStack(alignment: .center, spacing: 10.0) {
+                Text(greeting)
+                    .font(RestFitTheme.manrope(size: 17.0, bold: false))
+                    .foregroundStyle(Color.white.opacity(0.48))
+                    .tracking(1.2)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            Text(headline)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.white)
-                .fixedSize(horizontal: false, vertical: true)
+                Image("app_mark", bundle: .module)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 28.0, height: 28.0)
+                    .clipShape(RoundedRectangle(cornerRadius: 8.0, style: .continuous))
+
+                Spacer(minLength: 0)
+            }
+
+            if let punch = punchLine {
+                VStack(alignment: .leading, spacing: 2.0) {
+                    ForEach(Array(leadLines.enumerated()), id: \.offset) { _, line in
+                        Text(line)
+                            .font(RestFitTheme.manrope(size: 26.0, bold: false))
+                            .foregroundStyle(Color.white.opacity(0.78))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Text(punch)
+                        .font(RestFitTheme.manrope(size: 42.0, bold: true))
+                        .foregroundStyle(.white)
+                        .tracking(-0.8)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                Text(headline)
+                    .font(RestFitTheme.manrope(size: 36.0, bold: true))
+                    .foregroundStyle(.white)
+                    .lineSpacing(4.0)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 36.0)
+        .padding(.bottom, 20.0)
+    }
+
+    private var headlineLines: [String] {
+        var lines: [String] = []
+        for line in headline.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                lines.append(trimmed)
+            }
+        }
+        return lines
+    }
+
+    private var leadLines: [String] {
+        let lines = headlineLines
+        guard lines.count >= 2 else { return [] }
+        return Array(lines.dropLast())
+    }
+
+    private var punchLine: String? {
+        let lines = headlineLines
+        guard lines.count >= 2 else { return nil }
+        return lines.last
     }
 }
 

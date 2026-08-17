@@ -1,13 +1,33 @@
 import Foundation
 
 enum WellnessGuide {
-    static func greeting(for date: Date = .now, name: String) -> String {
-        let hour = Calendar.current.component(.hour, from: date)
-        switch hour {
-        case 5..<12: return "Good morning, \(name)"
-        case 12..<17: return "Good afternoon, \(name)"
-        case 17..<22: return "Good evening, \(name)"
-        default: return "Good night, \(name)"
+    static func greeting(name: String) -> String {
+        if let first = firstName(from: name) {
+            return "Hi, \(first)"
+        }
+        return "Hi"
+    }
+
+    /// First name for greetings. Ignores emails and placeholder labels.
+    static func firstName(from raw: String) -> String? {
+        guard let person = personName(from: raw) else { return nil }
+        let parts = person
+            .replacingOccurrences(of: ",", with: " ")
+            .components(separatedBy: " ")
+            .filter { !$0.isEmpty }
+        return parts.first
+    }
+
+    /// A real person name, or nil when the value is empty, an email, or a placeholder.
+    static func personName(from raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.contains("@") { return nil }
+        switch trimmed.lowercased() {
+        case "you", "user", "guest", "stella fit user":
+            return nil
+        default:
+            return trimmed
         }
     }
 
@@ -17,7 +37,7 @@ enum WellnessGuide {
             return "Your circadian rhythm\nis looking balanced."
         }
         if avgSleep < 70 {
-            return "Your sleep needs\na little attention."
+            return "Tomorrow starts with\nhow you sleep\ntonight."
         }
         if fastingProgress < 0.3 {
             return "You're early in today's fast.\nStay hydrated."

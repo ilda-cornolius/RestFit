@@ -9,16 +9,13 @@ struct AlarmView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                AppHeader(name: store.profile.name, onProfile: onProfile)
+                AppHeader(section: "Alarm", onProfile: onProfile)
 
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(store.nextAlarmLabel)
                             .font(.caption)
                             .foregroundStyle(RestFitTheme.muted)
-                        Text("Alarms")
-                            .font(.title2.weight(.semibold))
-                            .foregroundStyle(.white)
                     }
                     Spacer()
                     MintButton(title: "Add Alarm") {
