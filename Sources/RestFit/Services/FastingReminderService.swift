@@ -150,14 +150,42 @@ enum FastingReminderService {
         for alarm in alarms {
             await cancelAlarm(id: alarm.notificationID)
             guard alarm.isEnabled else { continue }
-            guard let fireDate = nextAlarmDate(hour: alarm.hour, minute: alarm.minute) else { continue }
-            let suffix = alarm.repeatsDaily ? "Repeats daily" : "One time"
-            await schedule(
-                id: alarm.notificationID,
-                title: alarm.label,
-                body: "\(alarm.timeLabel) · \(suffix)",
-                date: fireDate
+            await scheduleAlarmNotification(alarm)
+        }
+    }
+
+    private static func scheduleAlarmNotification(_ alarm: AlarmItem) async {
+        let content = UNMutableNotificationContent()
+        content.title = alarm.label
+        content.body = alarm.repeatsDaily
+            ? "\(alarm.timeLabel) · Daily alarm"
+            : "\(alarm.timeLabel) · One-time alarm"
+        content.sound = UNNotificationSound.default
+
+        let trigger: UNNotificationTrigger
+        if alarm.repeatsDaily {
+            var components = DateComponents()
+            components.hour = alarm.hour
+            components.minute = alarm.minute
+            trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+        } else {
+            guard let fireDate = nextAlarmDate(hour: alarm.hour, minute: alarm.minute) else { return }
+            let components = Calendar.current.dateComponents(
+                [.year, .month, .day, .hour, .minute],
+                from: fireDate
             )
+            trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        }
+
+        let request = UNNotificationRequest(
+            identifier: alarm.notificationID,
+            content: content,
+            trigger: trigger
+        )
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+        } catch {
+            logger.error("Failed to schedule alarm \(alarm.notificationID): \(error.localizedDescription)")
         }
     }
 

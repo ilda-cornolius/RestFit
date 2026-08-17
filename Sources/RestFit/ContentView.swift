@@ -48,7 +48,10 @@ struct ContentView: View {
         }
         .environment(store)
         .overlay {
-            AeroKeyboardOverlay()
+            ZStack {
+                AeroKeyboardOverlay()
+                AlarmRingOverlay()
+            }
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showLogSleep) {

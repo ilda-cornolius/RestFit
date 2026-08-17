@@ -106,6 +106,9 @@ import OSLog
 
     private(set) var now: Date = .now
 
+    private var snoozedUntil: [UUID: Date] = [:]
+    private var dismissedAlarmDayKeys: Set<String> = []
+
     init() {
         let loaded = Self.load()
         profile = loaded.profile
@@ -134,6 +137,7 @@ import OSLog
         activeWorkoutKind = loaded.activeWorkoutKind
         dataOwnerUserId = loaded.dataOwnerUserId ?? loaded.authUser?.id
         authUser = loaded.authUser
+        dismissedAlarmDayKeys = Set(loaded.dismissedAlarmDayKeys ?? [])
 
         // Never seed demo charts/fasts for real users. Debug builds can opt in below.
         #if DEBUG
@@ -233,11 +237,81 @@ import OSLog
         save()
     }
 
+    @MainActor
     func tick() {
         now = .now
         if isPomodoroRunning && pomodoroProgress >= 1.0 {
             completePomodoroPhase()
         }
+        if hasCompletedOnboarding {
+            checkAlarmsOnTick()
+            if Calendar.current.component(.minute, from: now) == 0 {
+                pruneDismissedAlarmKeys()
+            }
+        }
+    }
+
+    @MainActor
+    func dismissRingingAlarm() {
+        guard let alarm = AlarmRingController.shared.alarm else { return }
+        dismissedAlarmDayKeys.insert(alarmDayDismissKey(for: alarm, on: now))
+        AlarmRingController.shared.dismiss()
+        save()
+    }
+
+    @MainActor
+    func snoozeRingingAlarm(minutes: Int = 9) {
+        guard let alarm = AlarmRingController.shared.alarm else { return }
+        snoozedUntil[alarm.id] = now.addingTimeInterval(TimeInterval(minutes * 60))
+        AlarmRingController.shared.dismiss()
+    }
+
+    func previewAlarmSound() {
+        AlarmSoundService.previewAlarm()
+    }
+
+    @MainActor
+    private func checkAlarmsOnTick() {
+        if AlarmRingController.shared.isRinging { return }
+
+        for (alarmID, fireDate) in snoozedUntil {
+            if now >= fireDate, let alarm = alarms.first(where: { $0.id == alarmID }) {
+                snoozedUntil.removeValue(forKey: alarmID)
+                AlarmRingController.shared.present(alarm)
+                return
+            }
+        }
+
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: now)
+        let minute = calendar.component(.minute, from: now)
+        let second = calendar.component(.second, from: now)
+        guard second < 30 else { return }
+
+        for alarm in alarms where alarm.isEnabled {
+            guard alarm.hour == hour, alarm.minute == minute else { continue }
+            let dismissKey = alarmDayDismissKey(for: alarm, on: now)
+            guard !dismissedAlarmDayKeys.contains(dismissKey) else { continue }
+            AlarmRingController.shared.present(alarm)
+            return
+        }
+    }
+
+    private func alarmDayDismissKey(for alarm: AlarmItem, on date: Date) -> String {
+        let day = Calendar.current.startOfDay(for: date)
+        return "\(alarm.id.uuidString)-\(Int(day.timeIntervalSince1970))"
+    }
+
+    private func pruneDismissedAlarmKeys() {
+        let cutoff = Calendar.current.startOfDay(for: now.addingTimeInterval(-2 * 24 * 3600))
+        let cutoffStamp = Int(cutoff.timeIntervalSince1970)
+        dismissedAlarmDayKeys = Set(
+            dismissedAlarmDayKeys.filter { key in
+                guard let suffix = key.split(separator: "-").last,
+                      let stamp = Int(suffix) else { return false }
+                return stamp >= cutoffStamp
+            }
+        )
     }
 
     var fastingElapsed: TimeInterval {
@@ -1317,6 +1391,7 @@ private struct PersistedState: Codable {
     var authUser: AuthUser?
     var dataOwnerUserId: String?
     var fastingEntries: [FastingEntry]?
+    var dismissedAlarmDayKeys: [String]?
 }
 
 extension WellnessStore {
@@ -1354,7 +1429,8 @@ extension WellnessStore {
                 activeWorkoutKind: nil,
                 authUser: nil,
                 dataOwnerUserId: nil,
-                fastingEntries: []
+                fastingEntries: [],
+                dismissedAlarmDayKeys: []
             )
         }
     }
@@ -1386,7 +1462,8 @@ extension WellnessStore {
             activeWorkoutKind: activeWorkoutKind,
             authUser: authUser,
             dataOwnerUserId: dataOwnerUserId,
-            fastingEntries: fastingEntries
+            fastingEntries: fastingEntries,
+            dismissedAlarmDayKeys: Array(dismissedAlarmDayKeys)
         )
         do {
             let data = try JSONEncoder().encode(state)

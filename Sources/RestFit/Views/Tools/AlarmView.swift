@@ -18,6 +18,11 @@ struct AlarmView: View {
                             .foregroundStyle(RestFitTheme.muted)
                     }
                     Spacer()
+                    Button("Preview sound") {
+                        store.previewAlarmSound()
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.muted)
                     MintButton(title: "Add Alarm") {
                         editingAlarm = nil
                         showComposer = true
@@ -83,6 +88,15 @@ struct AlarmView: View {
             ))
             .labelsHidden()
             .tint(RestFitTheme.mint)
+
+            Button {
+                AlarmRingController.shared.present(alarm)
+            } label: {
+                Image(systemName: "bell.and.waves.left.and.right.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.mint.opacity(0.85))
+            }
+            .buttonStyle(.plain)
         }
         .padding(16)
         .background(RestFitTheme.card)
