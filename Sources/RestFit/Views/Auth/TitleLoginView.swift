@@ -21,10 +21,14 @@ struct TitleLoginView: View {
     @State private var hoverGoogle = false
     @State private var hoverBack = false
 
+    private var motionEnabled: Bool {
+        store.backgroundAnimationEnabled && animate
+    }
+
     var body: some View {
         ZStack {
             RestFitTheme.canvas.ignoresSafeArea()
-            LoginAtmosphere(animate: animate)
+            LoginAtmosphere(animate: motionEnabled)
 
             GeometryReader { geo in
                 let contentMax = min(520.0, max(320.0, geo.size.width - 24.0))
@@ -41,7 +45,7 @@ struct TitleLoginView: View {
                             Spacer(minLength: keyboardOpen ? 8.0 : (compact ? 12.0 : 24.0))
                         }
 
-                        AnimatedLoginLogo(animate: animate)
+                        AnimatedLoginLogo(animate: motionEnabled)
                             .scaleEffect(showEmailForm ? 0.72 : 1.0)
                             .frame(height: showEmailForm ? (compact ? 92.0 : 108.0) : (compact ? 120.0 : 150.0))
                             .padding(.bottom, showEmailForm ? 4.0 : 8.0)
@@ -80,6 +84,8 @@ struct TitleLoginView: View {
                                 methodChooserContent
                             }
 
+                            backgroundAnimationToggle
+
                             Text(RestFitLegal.shortDisclaimer)
                                 .font(.caption2)
                                 .foregroundStyle(RestFitTheme.faint)
@@ -109,9 +115,46 @@ struct TitleLoginView: View {
             if !store.isSignedIn, let restored = FirebaseAuthService.restoreSession() {
                 store.signIn(restored)
             }
+            syncBackgroundAnimation()
+        }
+        .onChange(of: store.backgroundAnimationEnabled) { _, _ in
+            syncBackgroundAnimation()
+        }
+    }
+
+    private var backgroundAnimationToggle: some View {
+        Toggle(isOn: Binding(
+            get: { store.backgroundAnimationEnabled },
+            set: { store.setBackgroundAnimationEnabled($0) }
+        )) {
+            HStack(spacing: 8.0) {
+                Image(systemName: "sparkles")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.mint)
+                Text("Background animation")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.muted)
+            }
+        }
+        .tint(RestFitTheme.mint)
+        .padding(.horizontal, 14.0)
+        .padding(.vertical, 10.0)
+        .background(Color.white.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 14.0, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14.0, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1.0)
+        )
+        .padding(.top, 4.0)
+    }
+
+    private func syncBackgroundAnimation() {
+        if store.backgroundAnimationEnabled {
             withAnimation(.easeInOut(duration: 5.2).repeatForever(autoreverses: true)) {
                 animate = true
             }
+        } else {
+            animate = false
         }
     }
 

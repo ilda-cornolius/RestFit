@@ -94,6 +94,7 @@ struct WellnessProfile: Codable {
     var hasCompletedOnboarding: Bool
     var remindersEnabled: Bool
     var weightUnit: WeightUnit?
+    var backgroundAnimationEnabled: Bool
 
     static let `default` = WellnessProfile(
         name: "",
@@ -102,8 +103,47 @@ struct WellnessProfile: Codable {
         fastingStreakDays: 0,
         hasCompletedOnboarding: false,
         remindersEnabled: true,
-        weightUnit: .pounds
+        weightUnit: .pounds,
+        backgroundAnimationEnabled: true
     )
+
+    enum CodingKeys: String, CodingKey {
+        case name, targetWeightKg, fastingProtocol, fastingStreakDays
+        case hasCompletedOnboarding, remindersEnabled, weightUnit
+        case backgroundAnimationEnabled
+    }
+
+    init(
+        name: String,
+        targetWeightKg: Double,
+        fastingProtocol: FastingProtocol,
+        fastingStreakDays: Int,
+        hasCompletedOnboarding: Bool,
+        remindersEnabled: Bool,
+        weightUnit: WeightUnit?,
+        backgroundAnimationEnabled: Bool = true
+    ) {
+        self.name = name
+        self.targetWeightKg = targetWeightKg
+        self.fastingProtocol = fastingProtocol
+        self.fastingStreakDays = fastingStreakDays
+        self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.remindersEnabled = remindersEnabled
+        self.weightUnit = weightUnit
+        self.backgroundAnimationEnabled = backgroundAnimationEnabled
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        targetWeightKg = try container.decodeIfPresent(Double.self, forKey: .targetWeightKg) ?? 65.0
+        fastingProtocol = try container.decodeIfPresent(FastingProtocol.self, forKey: .fastingProtocol) ?? .sixteenEight
+        fastingStreakDays = try container.decodeIfPresent(Int.self, forKey: .fastingStreakDays) ?? 0
+        hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
+        remindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .remindersEnabled) ?? true
+        weightUnit = try container.decodeIfPresent(WeightUnit.self, forKey: .weightUnit)
+        backgroundAnimationEnabled = try container.decodeIfPresent(Bool.self, forKey: .backgroundAnimationEnabled) ?? true
+    }
 }
 
 struct WellnessGuidance: Identifiable, Hashable {

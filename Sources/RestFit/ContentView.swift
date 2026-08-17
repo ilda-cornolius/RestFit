@@ -469,6 +469,20 @@ struct ProfileView: View {
                             }
                             .tint(RestFitTheme.mint)
 
+                            Toggle(isOn: Binding(
+                                get: { store.backgroundAnimationEnabled },
+                                set: { store.setBackgroundAnimationEnabled($0) }
+                            )) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Background animation")
+                                        .foregroundStyle(.white)
+                                    Text("Drifting glow on the sign-in screen")
+                                        .font(.caption)
+                                        .foregroundStyle(RestFitTheme.muted)
+                                }
+                            }
+                            .tint(RestFitTheme.mint)
+
                             MintButton(title: "Save Profile") {
                                 let entered = Double(targetWeight) ?? store.targetWeightDisplay
                                 store.updateProfile(

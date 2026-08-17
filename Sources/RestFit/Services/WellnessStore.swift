@@ -198,7 +198,8 @@ import OSLog
             fastingStreakDays: 0,
             hasCompletedOnboarding: completedOnboarding,
             remindersEnabled: true,
-            weightUnit: profile.weightUnit ?? .pounds
+            weightUnit: profile.weightUnit ?? .pounds,
+            backgroundAnimationEnabled: profile.backgroundAnimationEnabled
         )
         sleepEntries = []
         weightEntries = []
@@ -305,6 +306,14 @@ import OSLog
 
     func setUsesPounds(_ usesPounds: Bool) {
         profile.weightUnit = usesPounds ? .pounds : .kilograms
+    }
+
+    func setBackgroundAnimationEnabled(_ enabled: Bool) {
+        profile.backgroundAnimationEnabled = enabled
+    }
+
+    var backgroundAnimationEnabled: Bool {
+        profile.backgroundAnimationEnabled
     }
 
     var weightDeltaLabel: String {
