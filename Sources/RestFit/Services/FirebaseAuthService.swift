@@ -131,8 +131,21 @@ enum FirebaseAuthService {
         return AuthUser(
             id: user.uid,
             email: email,
-            displayName: name.isEmpty ? "Stella Fit user" : name
+            displayName: name.isEmpty ? "Stella Fit user" : name,
+            photoURL: user.photoURL?.absoluteString
         )
+    }
+
+    static func signInWithGoogle(idToken: String, accessToken: String? = nil) async throws -> AuthUser {
+        FirebaseAuthService.configureIfNeeded()
+        let credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, accessToken)
+        do {
+            let result = try await Auth.auth().signIn(with: AuthCredential(credential))
+            return authUser(from: result.user)
+        } catch {
+            android.util.Log.e("RestFitAuth", "google signIn failed: \(authErrorText(error))")
+            throw mapGoogleSignInError(error)
+        }
     }
     #endif
 
@@ -142,6 +155,33 @@ enum FirebaseAuthService {
         android.util.Log.e("RestFitAuth", "signIn failed: \(text)")
         #endif
         return .unrecognizedCredentials
+    }
+
+    private static func mapGoogleSignInError(_ error: Error) -> FirebaseAuthError {
+        let text = authErrorText(error)
+        if text.contains("operation-not-allowed") || text.contains("operation_not_allowed") {
+            return .failed(
+                "Google sign-in isn’t enabled in Firebase. Open Firebase Console → Authentication → Sign-in method → enable Google."
+            )
+        }
+        if text.contains("account-exists-with-different-credential")
+            || text.contains("account_exists_with_different_credential") {
+            return .failed(
+                "This email already uses email/password sign-in. Use Sign in with Email instead, or use a different Google account."
+            )
+        }
+        if text.contains("invalid-credential") || text.contains("invalid_credential") {
+            return .failed(
+                "Google rejected the sign-in token. Confirm the Web client ID matches Firebase, and add the Play App signing SHA-1."
+            )
+        }
+        if text.contains("network") || text.contains("unable to resolve") || text.contains("timeout") {
+            return .failed("Network error. Check your connection and try again.")
+        }
+        if let readable = readableFirebaseMessage(from: text) {
+            return .failed(readable)
+        }
+        return .failed("Google sign-in failed. Try again in a minute.")
     }
 
     private static func mapRegisterError(_ error: Error) -> FirebaseAuthError {

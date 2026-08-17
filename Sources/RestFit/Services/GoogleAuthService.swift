@@ -40,13 +40,13 @@ enum GoogleAuthService {
 
     #if SKIP
     private static func signInAndroid() async throws -> AuthUser {
-        // Credential Manager requires an Activity context (not Application).
+        FirebaseAuthService.configureIfNeeded()
+
         guard let activity = UIApplication.shared.androidActivity else {
             throw GoogleAuthError.noActivity
         }
         let credentialManager = androidx.credentials.CredentialManager.create(activity)
 
-        // Bottom-sheet for accounts already used with this app.
         let googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setServerClientId(GoogleAuthConfig.webClientID)
@@ -67,8 +67,6 @@ enum GoogleAuthService {
             }
         }
 
-        // No saved credentials → full "Sign in with Google" account picker.
-        // This is Google's required fallback when GetGoogleIdOption throws NoCredentialException.
         let signInButtonOption = com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(
             GoogleAuthConfig.webClientID
         ).build()
@@ -103,16 +101,74 @@ enum GoogleAuthService {
             context: activity,
             request: request
         )
-        let googleId = com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(
-            result.credential.data
-        )
-        let email = googleId.id
-        let id = email.isEmpty ? UUID().uuidString : email
+
+        let googleId: com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+        do {
+            googleId = com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(
+                result.credential.data
+            )
+        } catch {
+            android.util.Log.e("RestFitAuth", "GoogleIdTokenCredential.createFrom failed: \(error)")
+            throw GoogleAuthError.failed(
+                "Google returned an unexpected sign-in response. Update the app from Play and try again."
+            )
+        }
+
+        let idToken = googleId.idToken
+        guard !idToken.isEmpty else {
+            throw GoogleAuthError.failed(
+                "Google did not return a sign-in token. Add the Play App signing SHA-1 in Firebase and Google Cloud (see store/PLAY_APP_SIGNING_SHA1.md)."
+            )
+        }
+
         let given = (googleId.givenName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let full = (googleId.displayName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let emailFromToken = emailFromIdToken(idToken)
+        let email = emailFromToken ?? normalizedEmail(googleId.id)
         let displayName = !full.isEmpty ? full : (!given.isEmpty ? given : email)
         let photoURL = googleId.profilePictureUri?.toString()
-        return AuthUser(id: id, email: email, displayName: displayName, photoURL: photoURL)
+
+        do {
+            return try await FirebaseAuthService.signInWithGoogle(idToken: idToken)
+        } catch {
+            android.util.Log.w("RestFitAuth", "Firebase Google sign-in failed, using local session: \(error)")
+            if let firebaseError = error as? FirebaseAuthError,
+               case .failed(let message) = firebaseError,
+               message.contains("isn’t enabled in Firebase") {
+                throw GoogleAuthError.failed(message)
+            }
+
+            let id = email.isEmpty ? UUID().uuidString : email
+            return AuthUser(id: id, email: email, displayName: displayName, photoURL: photoURL)
+        }
+    }
+
+    private static func normalizedEmail(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.contains("@") {
+            return trimmed.lowercased()
+        }
+        return trimmed
+    }
+
+    private static func emailFromIdToken(_ idToken: String) -> String? {
+        let parts = idToken.split(separator: ".")
+        guard parts.count >= 2 else { return nil }
+        var payload = String(parts[1])
+        let remainder = payload.count % 4
+        if remainder > 0 {
+            payload += String(repeating: "=", count: 4 - remainder)
+        }
+        payload = payload
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        guard let data = Data(base64Encoded: payload),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let email = json["email"] as? String,
+              email.contains("@") else {
+            return nil
+        }
+        return email.lowercased()
     }
 
     private static func isNoCredential(_ error: Error) -> Bool {
@@ -125,12 +181,27 @@ enum GoogleAuthService {
     private static func mappedFailure(_ error: Error) -> GoogleAuthError {
         let text = String(describing: error)
         let lower = text.lowercased()
-        if lower.contains("sha") || lower.contains("developer_error") || lower.contains("10:") {
+        android.util.Log.e("RestFitAuth", "Google credential request failed: \(text)")
+
+        if lower.contains("access_denied") || lower.contains("access denied") {
             return .failed(
-                "Google Sign-In failed for this Play Store install. Add the Play Console App signing SHA-1 to Firebase and the Android OAuth client."
+                "Google blocked sign-in for this account. In Google Cloud Console, add your Gmail under OAuth consent screen → Test users while the app is in Testing."
             )
         }
-        return .failed(text)
+        if lower.contains("sha") || lower.contains("developer_error") || lower.contains("10:") {
+            return .failed(
+                "Google Sign-In failed for this Play Store install. Add the Play Console App signing SHA-1 to Firebase and the Android OAuth client (store/PLAY_APP_SIGNING_SHA1.md)."
+            )
+        }
+        if lower.contains("network") || lower.contains("unable to resolve") || lower.contains("timeout") {
+            return .failed("Network error during Google sign-in. Check your connection and try again.")
+        }
+        if lower.contains("invalid credential") || lower.contains("invalid_credential") {
+            return .failed(
+                "Google rejected the sign-in. Confirm Google is enabled in Firebase Authentication and the Web client ID matches your Firebase project."
+            )
+        }
+        return .failed("Google sign-in failed after choosing an account. Try again, or use Sign in with Email.")
     }
     #endif
 }
