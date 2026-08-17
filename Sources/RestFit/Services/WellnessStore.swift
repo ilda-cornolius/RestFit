@@ -847,6 +847,16 @@ import OSLog
         Weekday.ordered(startingAt: workoutSettings.weekStartsOn)
     }
 
+    var usesWorkoutCalendar: Bool {
+        workoutSettings.usesCalendarLayout
+    }
+
+    func setUsesWorkoutCalendar(_ on: Bool) {
+        var settings = workoutSettings
+        settings.usesCalendarLayout = on
+        workoutSettings = settings
+    }
+
     var currentWeekStart: Date {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)

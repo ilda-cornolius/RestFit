@@ -8,6 +8,8 @@ struct StrengthPlanView: View {
     @State private var showSettings = false
     @State private var editingExercise: StrengthExercise?
     @State private var customFocus = ""
+    @State private var visibleMonth = Date()
+    @State private var selectedDate = Date()
 
     var body: some View {
         ScrollView {
@@ -33,6 +35,11 @@ struct StrengthPlanView: View {
                 }
                 .padding(.horizontal, 24)
 
+                if !store.isWorkingOut {
+                    layoutToggle
+                        .padding(.horizontal, 24)
+                }
+
                 if store.isWorkingOut {
                     sessionCard
                         .padding(.horizontal, 24)
@@ -41,8 +48,17 @@ struct StrengthPlanView: View {
                             .padding(.horizontal, 24)
                     }
                 } else {
-                    weekCard
+                    if store.usesWorkoutCalendar {
+                        AeroWorkoutCalendar(
+                            selectedDay: $selectedDay,
+                            visibleMonth: $visibleMonth,
+                            onSelect: selectCalendarDay
+                        )
                         .padding(.horizontal, 24)
+                    } else {
+                        weekCard
+                            .padding(.horizontal, 24)
+                    }
                     dayCard
                         .padding(.horizontal, 24)
                     startCard
@@ -55,6 +71,8 @@ struct StrengthPlanView: View {
         }
         .onAppear {
             selectedDay = store.todayWeekday
+            selectedDate = Date()
+            visibleMonth = Date()
             customFocus = store.strengthDay(for: selectedDay).focus
         }
         .sheet(isPresented: $showComposer) {
@@ -72,6 +90,49 @@ struct StrengthPlanView: View {
 
     private var selectedPlan: StrengthDayPlan {
         store.strengthDay(for: selectedDay)
+    }
+
+    private var layoutToggle: some View {
+        HStack(spacing: 0) {
+            layoutChip("Compact", calendar: false)
+            layoutChip("Calendar", calendar: true)
+        }
+        .padding(3)
+        .background(Color.white.opacity(0.08))
+        .overlay(
+            Capsule()
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.35), RestFitTheme.mint.opacity(0.28)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.0
+                )
+        )
+        .clipShape(Capsule())
+    }
+
+    private func layoutChip(_ title: String, calendar: Bool) -> some View {
+        let selected = store.usesWorkoutCalendar == calendar
+        return Button {
+            store.setUsesWorkoutCalendar(calendar)
+        } label: {
+            Text(title)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(selected ? RestFitTheme.canvas : .white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(selected ? RestFitTheme.mint : Color.clear)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func selectCalendarDay(_ day: WorkoutMonthDay) {
+        selectedDay = day.weekday
+        selectedDate = day.date
+        customFocus = store.strengthDay(for: day.weekday).focus
     }
 
     private var weekCard: some View {
@@ -109,7 +170,9 @@ struct StrengthPlanView: View {
                         Text(selectedPlan.weekday.title)
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(.white)
-                        Text(selectedPlan.dayTypeLabel)
+                        Text(store.usesWorkoutCalendar
+                             ? WorkoutCalendar.dayTitle(selectedDate)
+                             : selectedPlan.dayTypeLabel)
                             .font(.caption)
                             .foregroundStyle(RestFitTheme.mint)
                     }
@@ -123,6 +186,12 @@ struct StrengthPlanView: View {
                             .background(RestFitTheme.mint)
                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
+                }
+
+                if store.usesWorkoutCalendar {
+                    Text("Sets every \(selectedPlan.weekday.title) in \(WorkoutCalendar.monthTitle(visibleMonth)).")
+                        .font(.caption)
+                        .foregroundStyle(RestFitTheme.muted)
                 }
 
                 Text("Day type")
@@ -142,9 +211,14 @@ struct StrengthPlanView: View {
                         .font(.caption)
                         .foregroundStyle(RestFitTheme.muted)
                 } else {
-                    HStack {
-                        TextField("Workout name", text: $customFocus)
-                            .foregroundStyle(.white)
+                    HStack(alignment: .bottom, spacing: 10) {
+                        AeroTextField(
+                            title: "Workout name",
+                            text: $customFocus,
+                            mode: AeroKeyboardMode.text,
+                            placeholder: "Push, Pull, Legs...",
+                            minHeight: 48.0
+                        )
                         Button("Save") {
                             let name = customFocus.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !name.isEmpty else { return }
@@ -157,6 +231,7 @@ struct StrengthPlanView: View {
                         }
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(RestFitTheme.mint)
+                        .padding(.bottom, 14)
                     }
 
                     if selectedPlan.exercises.isEmpty {

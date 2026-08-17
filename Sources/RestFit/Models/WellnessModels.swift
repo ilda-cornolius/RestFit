@@ -414,6 +414,7 @@ struct WorkoutSettings: Codable, Hashable {
     var morningNudgeHour: Int
     var morningNudgeMinute: Int
     var followWakeAlarm: Bool
+    var usesCalendarLayout: Bool
 
     static var `default`: WorkoutSettings {
         WorkoutSettings(
@@ -424,7 +425,8 @@ struct WorkoutSettings: Codable, Hashable {
             morningNudgeEnabled: true,
             morningNudgeHour: 7,
             morningNudgeMinute: 30,
-            followWakeAlarm: true
+            followWakeAlarm: true,
+            usesCalendarLayout: false
         )
     }
 
@@ -445,6 +447,7 @@ struct WorkoutSettings: Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case weekStartsOn, trainingNotes, lastDaySplashAt, lastWeekEndSplashKey
         case morningNudgeEnabled, morningNudgeHour, morningNudgeMinute, followWakeAlarm
+        case usesCalendarLayout
     }
 
     init(
@@ -455,7 +458,8 @@ struct WorkoutSettings: Codable, Hashable {
         morningNudgeEnabled: Bool,
         morningNudgeHour: Int,
         morningNudgeMinute: Int,
-        followWakeAlarm: Bool
+        followWakeAlarm: Bool,
+        usesCalendarLayout: Bool = false
     ) {
         self.weekStartsOn = weekStartsOn
         self.trainingNotes = trainingNotes
@@ -465,6 +469,7 @@ struct WorkoutSettings: Codable, Hashable {
         self.morningNudgeHour = morningNudgeHour
         self.morningNudgeMinute = morningNudgeMinute
         self.followWakeAlarm = followWakeAlarm
+        self.usesCalendarLayout = usesCalendarLayout
     }
 
     init(from decoder: Decoder) throws {
@@ -477,6 +482,7 @@ struct WorkoutSettings: Codable, Hashable {
         morningNudgeHour = try container.decodeIfPresent(Int.self, forKey: .morningNudgeHour) ?? 7
         morningNudgeMinute = try container.decodeIfPresent(Int.self, forKey: .morningNudgeMinute) ?? 30
         followWakeAlarm = try container.decodeIfPresent(Bool.self, forKey: .followWakeAlarm) ?? true
+        usesCalendarLayout = try container.decodeIfPresent(Bool.self, forKey: .usesCalendarLayout) ?? false
     }
 }
 

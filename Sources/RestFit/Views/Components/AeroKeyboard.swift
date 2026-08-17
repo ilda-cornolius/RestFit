@@ -260,16 +260,27 @@ private struct AeroKeyboardPanel: View {
 
     private var panelBackground: some View {
         ZStack {
-            RestFitTheme.surface.opacity(0.94)
+            RestFitTheme.surface.opacity(0.82)
             LinearGradient(
                 colors: [
-                    Color.white.opacity(0.12),
+                    Color.white.opacity(0.22),
+                    RestFitTheme.mint.opacity(0.08),
                     Color.clear,
-                    RestFitTheme.mint.opacity(0.08)
+                    RestFitTheme.coral.opacity(0.06)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+            Circle()
+                .fill(RestFitTheme.mint.opacity(0.16))
+                .frame(width: 180.0, height: 180.0)
+                .blur(radius: 36.0)
+                .offset(x: 90.0, y: -40.0)
+            Circle()
+                .fill(Color.white.opacity(0.1))
+                .frame(width: 140.0, height: 140.0)
+                .blur(radius: 28.0)
+                .offset(x: -80.0, y: 50.0)
         }
     }
 
@@ -367,11 +378,17 @@ private struct AeroKeyboardPanel: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44.0)
-                .background(Color.white.opacity(0.1))
+                .background(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.18), Color.white.opacity(0.06)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
                 .clipShape(RoundedRectangle(cornerRadius: 10.0, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10.0, style: .continuous)
-                        .stroke(Color.white.opacity(0.14), lineWidth: 1.0)
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1.0)
                 )
         }
         .buttonStyle(.plain)
@@ -396,7 +413,11 @@ private struct AeroKeyboardPanel: View {
                 .foregroundStyle(isPrimary ? RestFitTheme.canvas : .white)
                 .frame(maxWidth: flex ? .infinity : (wide ? 56.0 : .infinity))
                 .frame(height: 44.0)
-                .background(isPrimary ? RestFitTheme.mint : Color.white.opacity(0.14))
+                .background(isPrimary ? RestFitTheme.mint : Color.white.opacity(0.16))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10.0, style: .continuous)
+                        .stroke(Color.white.opacity(isPrimary ? 0.0 : 0.18), lineWidth: 1.0)
+                )
                 .clipShape(RoundedRectangle(cornerRadius: 10.0, style: .continuous))
         }
         .buttonStyle(.plain)
