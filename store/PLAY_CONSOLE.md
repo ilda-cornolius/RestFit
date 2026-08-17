@@ -2,6 +2,8 @@
 
 Use this while filling out Google Play Console. Package name: `com.restfit.app`
 
+> **Countries / regions & EU geo-blocking:** see [`COUNTRY_REGION_DISTRIBUTION.md`](./COUNTRY_REGION_DISTRIBUTION.md).
+
 ## App access (Play Console)
 
 Stella Fit requires sign-in (email/password via Firebase, or Google).

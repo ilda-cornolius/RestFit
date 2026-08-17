@@ -56,6 +56,7 @@ open class MainActivity: AppCompatActivity {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         logger.info("starting activity")
+        title = "Stella Fit"
         UIApplication.launch(this)
         enableEdgeToEdge()
 
@@ -114,6 +115,14 @@ open class MainActivity: AppCompatActivity {
     override fun onRestart() {
         logger.info("onRestart")
         super.onRestart()
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        // Required when configChanges lists screenSize/screenLayout so fold/unfold
+        // continues to deliver size updates instead of freezing the old layout.
+        super.onConfigurationChanged(newConfig)
+        logger.info("onConfigurationChanged: ${newConfig.screenWidthDp}x${newConfig.screenHeightDp}")
+        title = "Stella Fit"
     }
 
     override fun onSaveInstanceState(outState: android.os.Bundle): Unit = super.onSaveInstanceState(outState)

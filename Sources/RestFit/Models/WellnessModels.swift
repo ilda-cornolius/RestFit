@@ -96,10 +96,10 @@ struct WellnessProfile: Codable {
     var weightUnit: WeightUnit?
 
     static let `default` = WellnessProfile(
-        name: "Maria",
+        name: "",
         targetWeightKg: 65.0,
         fastingProtocol: .sixteenEight,
-        fastingStreakDays: 14,
+        fastingStreakDays: 0,
         hasCompletedOnboarding: false,
         remindersEnabled: true,
         weightUnit: .pounds

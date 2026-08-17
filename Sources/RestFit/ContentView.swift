@@ -65,19 +65,35 @@ struct ContentView: View {
     }
 
     private var mainApp: some View {
-        ZStack(alignment: .bottom) {
-            RestFitTheme.canvas.ignoresSafeArea()
+        GeometryReader { geo in
+            let contentMax = Self.preferredContentWidth(for: geo.size.width)
+            ZStack(alignment: .bottom) {
+                RestFitTheme.canvas.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                tabContent
-                    .frame(maxWidth: 440)
+                VStack(spacing: 0) {
+                    tabContent
+                        .frame(maxWidth: contentMax)
+                        .frame(maxWidth: .infinity)
+                }
+
+                BottomTabBar(selectedTab: $selectedTab)
+                    .frame(maxWidth: contentMax)
                     .frame(maxWidth: .infinity)
             }
-
-            BottomTabBar(selectedTab: $selectedTab)
-                .frame(maxWidth: 440)
-                .frame(maxWidth: .infinity)
+            // Force a fresh layout tree when the Fold cover/main display size changes.
+            .id("main-\(Int(geo.size.width))x\(Int(geo.size.height))")
         }
+    }
+
+    /// Phone-like column on cover screens; wider readable column when unfolded / tablet.
+    private static func preferredContentWidth(for width: CGFloat) -> CGFloat {
+        if width >= 900.0 {
+            return min(760.0, width - 48.0)
+        }
+        if width >= 600.0 {
+            return min(600.0, width - 32.0)
+        }
+        return min(440.0, max(320.0, width))
     }
 
     @ViewBuilder
@@ -565,7 +581,7 @@ struct ProfileView: View {
 
                 SurfaceCard {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("About Stella Fit")
+                        Text("About \(RestFitLegal.appDisplayName)")
                             .font(.body.weight(.semibold))
                             .foregroundStyle(.white)
                         Text("Track fasting, sleep, weight, and workouts in one place. Tips are based on what you log — not medical advice.")

@@ -27,6 +27,7 @@ struct TitleLoginView: View {
             LoginAtmosphere(animate: animate)
 
             GeometryReader { geo in
+                let contentMax = min(520.0, max(320.0, geo.size.width - 24.0))
                 ScrollView {
                     VStack(spacing: 0) {
                         Spacer(minLength: 0)
@@ -34,8 +35,8 @@ struct TitleLoginView: View {
                         AnimatedLoginLogo(animate: animate)
                             .padding(.bottom, 8)
 
-                        Text("Stella Fit")
-                            .font(.system(size: 44, weight: .bold))
+                        Text(RestFitLegal.appDisplayName)
+                            .font(.system(size: geo.size.width >= 600.0 ? 52.0 : 44.0, weight: .bold))
                             .foregroundStyle(.white)
                             .shadow(color: RestFitTheme.mint.opacity(0.35), radius: 16.0, x: 0.0, y: 0.0)
 
@@ -78,9 +79,11 @@ struct TitleLoginView: View {
                         Spacer(minLength: 0)
                     }
                     .offset(y: -16.0)
+                    .frame(maxWidth: contentMax)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: geo.size.height)
                 }
+                .id("login-\(Int(geo.size.width))x\(Int(geo.size.height))")
             }
         }
         .preferredColorScheme(.dark)

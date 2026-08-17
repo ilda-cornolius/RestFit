@@ -80,6 +80,11 @@ import OSLog
         didSet { save() }
     }
 
+    /// Which account owns the on-device wellness logs (survives sign-out so the same user can return).
+    private var dataOwnerUserId: String? {
+        didSet { save() }
+    }
+
     var isSignedIn: Bool { authUser != nil }
 
     var pomodoroPhase: PomodoroPhase = .focus
@@ -115,20 +120,30 @@ import OSLog
         isWorkingOut = loaded.isWorkingOut ?? false
         workoutStartedAt = loaded.workoutStartedAt
         activeWorkoutKind = loaded.activeWorkoutKind
+        dataOwnerUserId = loaded.dataOwnerUserId ?? loaded.authUser?.id
         authUser = loaded.authUser
 
-        if sleepEntries.isEmpty && !loaded.profile.hasCompletedOnboarding {
+        // Never seed demo charts/fasts for real users. Debug builds can opt in below.
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["RESTFIT_SEED_DEMO"] == "1",
+           sleepEntries.isEmpty,
+           !loaded.profile.hasCompletedOnboarding {
             seedSampleData()
         }
+        #endif
 
         refreshAlarms()
         refreshWorkoutNudges()
     }
 
     func signIn(_ user: AuthUser) {
+        if let owner = dataOwnerUserId, owner != user.id {
+            resetWellnessDataToDefaults(name: user.displayName, completedOnboarding: false)
+            cancelReminders()
+        }
         authUser = user
-        if profile.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || profile.name == WellnessProfile.default.name {
+        dataOwnerUserId = user.id
+        if profile.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             profile.name = user.displayName
         }
     }
@@ -155,13 +170,14 @@ import OSLog
         try await FirebaseAuthService.deleteAccount()
         FirebaseAuthService.signOut()
         authUser = nil
+        dataOwnerUserId = nil
         resetWellnessDataToDefaults(name: "", completedOnboarding: false)
         cancelReminders()
     }
 
     private func resetWellnessDataToDefaults(name: String, completedOnboarding: Bool) {
         profile = WellnessProfile(
-            name: name.isEmpty ? WellnessProfile.default.name : name,
+            name: name,
             targetWeightKg: 65.0,
             fastingProtocol: .sixteenEight,
             fastingStreakDays: 0,
@@ -1213,6 +1229,7 @@ private struct PersistedState: Codable {
     var workoutStartedAt: Date?
     var activeWorkoutKind: WorkoutKind?
     var authUser: AuthUser?
+    var dataOwnerUserId: String?
 }
 
 extension WellnessStore {
@@ -1248,7 +1265,8 @@ extension WellnessStore {
                 isWorkingOut: false,
                 workoutStartedAt: nil,
                 activeWorkoutKind: nil,
-                authUser: nil
+                authUser: nil,
+                dataOwnerUserId: nil
             )
         }
     }
@@ -1278,7 +1296,8 @@ extension WellnessStore {
             isWorkingOut: isWorkingOut,
             workoutStartedAt: workoutStartedAt,
             activeWorkoutKind: activeWorkoutKind,
-            authUser: authUser
+            authUser: authUser,
+            dataOwnerUserId: dataOwnerUserId
         )
         do {
             let data = try JSONEncoder().encode(state)

@@ -1,6 +1,9 @@
 import Foundation
 
 enum RestFitLegal {
+    /// User-facing app name (launcher / login / store listing).
+    static let appDisplayName = "Stella Fit"
+
     /// Public privacy policy URL for Play Console / App Store (GitHub Pages).
     static let privacyPolicyURL = "https://ilda-cornolius.github.io/RestFit/privacy/"
 

@@ -168,6 +168,7 @@ struct OnboardingView: View {
                 }
                 .tint(RestFitTheme.mint)
 
+                #if !SKIP
                 Toggle(isOn: $enableHealth) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Import from Apple Health")
@@ -178,8 +179,6 @@ struct OnboardingView: View {
                     }
                 }
                 .tint(RestFitTheme.mint)
-                #if SKIP
-                .disabled(true)
                 #endif
             }
             .padding(.horizontal, 24)
@@ -222,8 +221,11 @@ struct OnboardingView: View {
         isFinishing = true
         store.setUsesPounds(usesPounds)
         let entered = Double(targetWeight) ?? store.targetWeightDisplay
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let authName = store.authUser?.displayName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let resolvedName = trimmedName.isEmpty ? (authName.isEmpty ? "You" : authName) : trimmedName
         store.completeOnboarding(
-            name: name.isEmpty ? "Maria" : name,
+            name: resolvedName,
             targetWeight: store.kilogramsFromDisplay(entered),
             fastingProtocol: selectedProtocol,
             remindersEnabled: enableReminders
