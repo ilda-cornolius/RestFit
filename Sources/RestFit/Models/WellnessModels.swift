@@ -58,6 +58,42 @@ struct SleepEntry: Identifiable, Codable, Hashable {
     }
 }
 
+struct FastingEntry: Identifiable, Codable, Hashable {
+    let id: UUID
+    var date: Date
+    var startedAt: Date
+    var durationSeconds: TimeInterval
+    var targetHours: Double
+    var fastingProtocol: FastingProtocol
+
+    init(
+        id: UUID = UUID(),
+        date: Date = .now,
+        startedAt: Date,
+        durationSeconds: TimeInterval,
+        targetHours: Double,
+        fastingProtocol: FastingProtocol
+    ) {
+        self.id = id
+        self.date = date
+        self.startedAt = startedAt
+        self.durationSeconds = durationSeconds
+        self.targetHours = targetHours
+        self.fastingProtocol = fastingProtocol
+    }
+
+    var durationLabel: String {
+        let total = max(0, Int(durationSeconds))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        return "\(hours)h \(minutes)m"
+    }
+
+    var reachedGoal: Bool {
+        durationSeconds >= targetHours * 3600.0
+    }
+}
+
 struct WeightEntry: Identifiable, Codable, Hashable {
     let id: UUID
     var date: Date

@@ -279,6 +279,7 @@ struct BottomTabBar: View {
 struct FastingView: View {
     @Environment(WellnessStore.self) private var store
     var onProfile: () -> Void = {}
+    @State private var showClearFastHistory = false
 
     var body: some View {
         ScrollView {
@@ -320,12 +321,23 @@ struct FastingView: View {
                 }
                 .padding(.horizontal, 24)
 
+                FastingHistoryCard(showClearConfirm: $showClearFastHistory)
+                    .padding(.horizontal, 24)
+
                 ForEach(store.guidance.filter { $0.icon == "flame.fill" || $0.icon == "drop.fill" || $0.icon == "fork.knife" }) { tip in
                     GuidanceCard(guidance: tip)
                         .padding(.horizontal, 24)
                 }
             }
             .padding(.bottom, 120)
+        }
+        .alert("Clear all fast history?", isPresented: $showClearFastHistory) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear all", role: .destructive) {
+                store.deleteAllFastingEntries()
+            }
+        } message: {
+            Text("This removes every completed fast from this device. It cannot be undone.")
         }
     }
 }
@@ -334,6 +346,7 @@ struct SleepView: View {
     @Environment(WellnessStore.self) private var store
     let onManualLog: () -> Void
     var onProfile: () -> Void = {}
+    @State private var showClearSleepHistory = false
 
     var body: some View {
         ScrollView {
@@ -359,31 +372,8 @@ struct SleepView: View {
                 SleepPanel()
                     .padding(.horizontal, 24)
 
-                SurfaceCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Recent Nights")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.white)
-
-                        ForEach(store.sleepEntries.sorted { $0.date > $1.date }.prefix(5)) { entry in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(entry.date.formatted(date: .abbreviated, time: .omitted))
-                                        .foregroundStyle(.white)
-                                    Text(entry.durationLabel)
-                                        .font(.caption)
-                                        .foregroundStyle(RestFitTheme.muted)
-                                }
-                                Spacer()
-                                Text("\(entry.qualityScore)%")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(RestFitTheme.mint)
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                }
-                .padding(.horizontal, 24)
+                SleepHistoryCard(showClearConfirm: $showClearSleepHistory)
+                    .padding(.horizontal, 24)
 
                 ForEach(store.guidance.filter { $0.icon == "moon.fill" || $0.icon == "sparkles" }) { tip in
                     GuidanceCard(guidance: tip)
@@ -392,7 +382,163 @@ struct SleepView: View {
             }
             .padding(.bottom, 120)
         }
+        .alert("Clear all sleep history?", isPresented: $showClearSleepHistory) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear all", role: .destructive) {
+                store.deleteAllSleepEntries()
+            }
+        } message: {
+            Text("This removes every logged night from this device. It cannot be undone.")
+        }
     }
+}
+
+private struct SleepHistoryCard: View {
+    @Environment(WellnessStore.self) private var store
+    @Binding var showClearConfirm: Bool
+
+    var body: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Sleep history")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                if store.sortedSleepEntries.isEmpty {
+                    Text("No sleep logged yet. Use In bed or Manual log to add nights.")
+                        .font(.caption)
+                        .foregroundStyle(RestFitTheme.muted)
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(store.sortedSleepEntries) { entry in
+                            historyRow(
+                                title: entry.date.formatted(date: .abbreviated, time: .omitted),
+                                subtitle: entry.durationLabel,
+                                badge: "\(entry.qualityScore)%",
+                                badgeColor: RestFitTheme.mint
+                            ) {
+                                store.deleteSleepEntry(entry.id)
+                            }
+                            if entry.id != store.sortedSleepEntries.last?.id {
+                                Divider().overlay(RestFitTheme.line.opacity(0.5))
+                            }
+                        }
+                    }
+
+                    HStack(spacing: 10) {
+                        historyActionButton("Delete last night", destructive: true) {
+                            store.deleteLatestSleepEntry()
+                        }
+                        historyActionButton("Clear all") {
+                            showClearConfirm = true
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+}
+
+private struct FastingHistoryCard: View {
+    @Environment(WellnessStore.self) private var store
+    @Binding var showClearConfirm: Bool
+
+    var body: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Fast history")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                if store.sortedFastingEntries.isEmpty {
+                    Text("No completed fasts yet. End a fast to save it here.")
+                        .font(.caption)
+                        .foregroundStyle(RestFitTheme.muted)
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(store.sortedFastingEntries) { entry in
+                            historyRow(
+                                title: entry.date.formatted(date: .abbreviated, time: .shortened),
+                                subtitle: "\(entry.fastingProtocol.displayName) · \(entry.durationLabel)",
+                                badge: entry.reachedGoal ? "Goal" : "Partial",
+                                badgeColor: entry.reachedGoal ? RestFitTheme.mint : RestFitTheme.coral
+                            ) {
+                                store.deleteFastingEntry(entry.id)
+                            }
+                            if entry.id != store.sortedFastingEntries.last?.id {
+                                Divider().overlay(RestFitTheme.line.opacity(0.5))
+                            }
+                        }
+                    }
+
+                    HStack(spacing: 10) {
+                        historyActionButton("Delete last fast", destructive: true) {
+                            store.deleteLatestFastingEntry()
+                        }
+                        historyActionButton("Clear all") {
+                            showClearConfirm = true
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+}
+
+private func historyRow(
+    title: String,
+    subtitle: String,
+    badge: String,
+    badgeColor: Color,
+    onDelete: @escaping () -> Void
+) -> some View {
+    HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .foregroundStyle(.white)
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(RestFitTheme.muted)
+        }
+        Spacer(minLength: 8)
+        Text(badge)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(badgeColor)
+        Button(action: onDelete) {
+            Image(systemName: "trash")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(RestFitTheme.faint)
+                .frame(width: 32, height: 32)
+        }
+        .buttonStyle(.plain)
+    }
+    .padding(.vertical, 8)
+}
+
+private func historyActionButton(
+    _ title: String,
+    destructive: Bool = false,
+    action: @escaping () -> Void
+) -> some View {
+    Button(action: action) {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(destructive ? RestFitTheme.coral : RestFitTheme.mint)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(Color.white.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(
+                        destructive ? RestFitTheme.coral.opacity(0.35) : RestFitTheme.mint.opacity(0.28),
+                        lineWidth: 1
+                    )
+            )
+    }
+    .buttonStyle(.plain)
 }
 
 struct ProfileView: View {

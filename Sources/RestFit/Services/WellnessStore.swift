@@ -11,6 +11,10 @@ import OSLog
         didSet { save() }
     }
 
+    var fastingEntries: [FastingEntry] {
+        didSet { save() }
+    }
+
     var weightEntries: [WeightEntry] {
         didSet { save() }
     }
@@ -106,6 +110,7 @@ import OSLog
         let loaded = Self.load()
         profile = loaded.profile
         sleepEntries = loaded.sleepEntries
+        fastingEntries = loaded.fastingEntries ?? []
         weightEntries = loaded.weightEntries
         meditationEntries = loaded.meditationEntries
         journalEntries = loaded.journalEntries ?? []
@@ -202,6 +207,7 @@ import OSLog
             backgroundAnimationEnabled: profile.backgroundAnimationEnabled
         )
         sleepEntries = []
+        fastingEntries = []
         weightEntries = []
         meditationEntries = []
         journalEntries = []
@@ -557,6 +563,18 @@ import OSLog
     }
 
     func endFasting() {
+        if isFasting, let start = fastingStartedAt {
+            let duration = max(0.0, now.timeIntervalSince(start))
+            fastingEntries.append(
+                FastingEntry(
+                    date: now,
+                    startedAt: start,
+                    durationSeconds: duration,
+                    targetHours: profile.fastingProtocol.targetHours,
+                    fastingProtocol: profile.fastingProtocol
+                )
+            )
+        }
         isFasting = false
         fastingStartedAt = nil
         save()
@@ -578,6 +596,40 @@ import OSLog
             qualityScore: quality
         )
         sleepEntries.append(entry)
+    }
+
+    var sortedSleepEntries: [SleepEntry] {
+        sleepEntries.sorted { $0.date > $1.date }
+    }
+
+    var sortedFastingEntries: [FastingEntry] {
+        fastingEntries.sorted { $0.date > $1.date }
+    }
+
+    func deleteSleepEntry(_ id: UUID) {
+        sleepEntries.removeAll { $0.id == id }
+    }
+
+    func deleteLatestSleepEntry() {
+        guard let latest = sortedSleepEntries.first else { return }
+        deleteSleepEntry(latest.id)
+    }
+
+    func deleteAllSleepEntries() {
+        sleepEntries = []
+    }
+
+    func deleteFastingEntry(_ id: UUID) {
+        fastingEntries.removeAll { $0.id == id }
+    }
+
+    func deleteLatestFastingEntry() {
+        guard let latest = sortedFastingEntries.first else { return }
+        deleteFastingEntry(latest.id)
+    }
+
+    func deleteAllFastingEntries() {
+        fastingEntries = []
     }
 
     func startSleep() {
@@ -1264,6 +1316,7 @@ private struct PersistedState: Codable {
     var activeWorkoutKind: WorkoutKind?
     var authUser: AuthUser?
     var dataOwnerUserId: String?
+    var fastingEntries: [FastingEntry]?
 }
 
 extension WellnessStore {
@@ -1300,7 +1353,8 @@ extension WellnessStore {
                 workoutStartedAt: nil,
                 activeWorkoutKind: nil,
                 authUser: nil,
-                dataOwnerUserId: nil
+                dataOwnerUserId: nil,
+                fastingEntries: []
             )
         }
     }
@@ -1331,7 +1385,8 @@ extension WellnessStore {
             workoutStartedAt: workoutStartedAt,
             activeWorkoutKind: activeWorkoutKind,
             authUser: authUser,
-            dataOwnerUserId: dataOwnerUserId
+            dataOwnerUserId: dataOwnerUserId,
+            fastingEntries: fastingEntries
         )
         do {
             let data = try JSONEncoder().encode(state)
