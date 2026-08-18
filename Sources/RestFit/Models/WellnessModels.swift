@@ -722,3 +722,155 @@ struct WorkoutEntry: Identifiable, Codable, Hashable {
         return "\(minutes) min"
     }
 }
+
+/// A single thing you did today — a lift with weight, a walk, or any activity.
+struct DailyWorkoutActivity: Identifiable, Codable, Hashable {
+    let id: UUID
+    var kind: DailyWorkoutActivityKind
+    var name: String
+    var sets: Int
+    var reps: Int
+    var weightKg: Double
+    var minutes: Int
+    var notes: String
+
+    init(
+        id: UUID = UUID(),
+        kind: DailyWorkoutActivityKind = .activity,
+        name: String = "",
+        sets: Int = 0,
+        reps: Int = 0,
+        weightKg: Double = 0,
+        minutes: Int = 0,
+        notes: String = ""
+    ) {
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.sets = sets
+        self.reps = reps
+        self.weightKg = weightKg
+        self.minutes = minutes
+        self.notes = notes
+    }
+
+    static func lift(name: String, sets: Int, reps: Int, weightKg: Double) -> DailyWorkoutActivity {
+        DailyWorkoutActivity(kind: .lift, name: name, sets: sets, reps: reps, weightKg: weightKg)
+    }
+
+    static func walk(minutes: Int = 30) -> DailyWorkoutActivity {
+        DailyWorkoutActivity(kind: .walk, name: "Walk", minutes: max(1, minutes))
+    }
+
+    static func activity(name: String, minutes: Int = 0) -> DailyWorkoutActivity {
+        DailyWorkoutActivity(kind: .activity, name: name, minutes: minutes)
+    }
+}
+
+enum DailyWorkoutActivityKind: String, Codable, CaseIterable {
+    case lift
+    case walk
+    case activity
+}
+
+/// What the user actually did on a calendar day (active pick or passive end-of-day log).
+struct DailyWorkoutLog: Identifiable, Codable, Hashable {
+    let id: UUID
+    var day: Date
+    var focus: String
+    var isRestDay: Bool
+    var loggedAt: Date
+    var wasPassive: Bool
+    var activities: [DailyWorkoutActivity]
+
+    init(
+        id: UUID = UUID(),
+        day: Date = .now,
+        focus: String = "Rest",
+        isRestDay: Bool = true,
+        loggedAt: Date = .now,
+        wasPassive: Bool = false,
+        activities: [DailyWorkoutActivity] = []
+    ) {
+        self.id = id
+        self.day = day
+        self.focus = focus
+        self.isRestDay = isRestDay
+        self.loggedAt = loggedAt
+        self.wasPassive = wasPassive
+        self.activities = activities
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, day, focus, isRestDay, loggedAt, wasPassive, activities
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        day = try container.decodeIfPresent(Date.self, forKey: .day) ?? .now
+        focus = try container.decodeIfPresent(String.self, forKey: .focus) ?? "Rest"
+        isRestDay = try container.decodeIfPresent(Bool.self, forKey: .isRestDay) ?? true
+        loggedAt = try container.decodeIfPresent(Date.self, forKey: .loggedAt) ?? .now
+        wasPassive = try container.decodeIfPresent(Bool.self, forKey: .wasPassive) ?? false
+        activities = try container.decodeIfPresent([DailyWorkoutActivity].self, forKey: .activities) ?? []
+    }
+
+    var isCardioDay: Bool {
+        focus.lowercased() == "cardio"
+    }
+
+    var isOffDay: Bool {
+        isRestDay || isCardioDay || focus.lowercased() == "rest"
+    }
+
+    var dayTypeLabel: String {
+        if isCardioDay { return "Cardio" }
+        if isOffDay { return "Rest" }
+        return focus
+    }
+}
+
+/// In-progress pick for today; last selection wins and is saved passively at day end.
+struct TodayWorkoutPick: Codable, Hashable {
+    var dayKey: String
+    var focus: String
+    var isRestDay: Bool
+    var pickedAt: Date
+    var activities: [DailyWorkoutActivity]
+
+    init(
+        dayKey: String,
+        focus: String,
+        isRestDay: Bool,
+        pickedAt: Date = .now,
+        activities: [DailyWorkoutActivity] = []
+    ) {
+        self.dayKey = dayKey
+        self.focus = focus
+        self.isRestDay = isRestDay
+        self.pickedAt = pickedAt
+        self.activities = activities
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case dayKey, focus, isRestDay, pickedAt, activities
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        dayKey = try container.decode(String.self, forKey: .dayKey)
+        focus = try container.decodeIfPresent(String.self, forKey: .focus) ?? "Rest"
+        isRestDay = try container.decodeIfPresent(Bool.self, forKey: .isRestDay) ?? true
+        pickedAt = try container.decodeIfPresent(Date.self, forKey: .pickedAt) ?? .now
+        activities = try container.decodeIfPresent([DailyWorkoutActivity].self, forKey: .activities) ?? []
+    }
+
+    var isCardioDay: Bool {
+        focus.lowercased() == "cardio"
+    }
+
+    var isOffDay: Bool {
+        isRestDay || isCardioDay || focus.lowercased() == "rest"
+    }
+}

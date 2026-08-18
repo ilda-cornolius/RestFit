@@ -95,7 +95,7 @@ struct MeditationView: View {
                 GuidanceCard(guidance: WellnessGuide.meditationTip)
                     .padding(.horizontal, 24)
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, AppLayout.scrollTailPadding)
         }
     }
 }

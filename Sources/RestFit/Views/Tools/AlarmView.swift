@@ -56,7 +56,7 @@ struct AlarmView: View {
                     .padding(.horizontal, 24)
                 }
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, AppLayout.scrollTailPadding)
         }
         .sheet(isPresented: $showComposer) {
             AlarmComposerSheet(alarm: editingAlarm)

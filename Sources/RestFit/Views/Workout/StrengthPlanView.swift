@@ -39,6 +39,8 @@ struct StrengthPlanView: View {
                 if !store.isWorkingOut {
                     layoutToggle
                         .padding(.horizontal, 24)
+                    TodayWorkoutCard()
+                        .padding(.horizontal, 24)
                 }
 
                 if store.isWorkingOut {
@@ -64,11 +66,13 @@ struct StrengthPlanView: View {
                         .padding(.horizontal, 24)
                     startCard
                         .padding(.horizontal, 24)
+                    dailyWorkoutHistoryCard
+                        .padding(.horizontal, 24)
                     recentWorkoutsCard
                         .padding(.horizontal, 24)
                 }
             }
-            .padding(.bottom, keyboard.isPresented ? 360.0 : 120.0)
+            .padding(.bottom, keyboard.isPresented ? 360.0 : AppLayout.scrollTailPadding)
         }
         .onAppear {
             selectedDay = store.todayWeekday
@@ -353,6 +357,47 @@ struct StrengthPlanView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                     .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var dailyWorkoutHistoryCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("What you did this week")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                if store.recentDailyWorkoutLogs.isEmpty {
+                    Text("Pick what you're doing each day. Your last selection is saved at night.")
+                        .font(.caption)
+                        .foregroundStyle(RestFitTheme.muted)
+                } else {
+                    ForEach(store.recentDailyWorkoutLogs) { log in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(log.dayTypeLabel)
+                                        .foregroundStyle(.white)
+                                    Text(log.day.formatted(date: .abbreviated, time: .omitted))
+                                        .font(.caption)
+                                        .foregroundStyle(RestFitTheme.muted)
+                                }
+                                Spacer()
+                                Text(log.wasPassive ? "Auto" : "Picked")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(RestFitTheme.faint)
+                            }
+                            if !log.activities.isEmpty {
+                                Text(store.logActivitySummary(log))
+                                    .font(.caption2)
+                                    .foregroundStyle(RestFitTheme.mint)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
             }
         }

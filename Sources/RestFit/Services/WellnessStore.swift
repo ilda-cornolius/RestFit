@@ -47,6 +47,14 @@ import OSLog
         didSet { save() }
     }
 
+    var dailyWorkoutLogs: [DailyWorkoutLog] {
+        didSet { save() }
+    }
+
+    var todayWorkoutPick: TodayWorkoutPick? {
+        didSet { save() }
+    }
+
     var completedStrengthIDs: [UUID] {
         didSet { save() }
     }
@@ -108,6 +116,8 @@ import OSLog
 
     private var snoozedUntil: [UUID: Date] = [:]
     private var dismissedAlarmDayKeys: Set<String> = []
+    private var dismissedWeightPromptDayKeys: Set<String> = []
+    private var lastDailyWorkoutFinalizeDayKey: String?
 
     init() {
         let loaded = Self.load()
@@ -122,6 +132,8 @@ import OSLog
         workoutEntries = loaded.workoutEntries ?? []
         strengthPlan = loaded.strengthPlan ?? .sample
         workoutSettings = loaded.workoutSettings ?? .default
+        dailyWorkoutLogs = loaded.dailyWorkoutLogs ?? []
+        todayWorkoutPick = loaded.todayWorkoutPick
         completedStrengthIDs = loaded.completedStrengthIDs ?? []
         pomodoroSessions = loaded.pomodoroSessions ?? []
         pomodoroSettings = loaded.pomodoroSettings ?? .default
@@ -138,6 +150,9 @@ import OSLog
         dataOwnerUserId = loaded.dataOwnerUserId ?? loaded.authUser?.id
         authUser = loaded.authUser
         dismissedAlarmDayKeys = Set(loaded.dismissedAlarmDayKeys ?? [])
+        dismissedWeightPromptDayKeys = Set(loaded.dismissedWeightPromptDayKeys ?? [])
+
+        normalizeTodayWorkoutPick()
 
         // Never seed demo charts/fasts for real users. Debug builds can opt in below.
         #if DEBUG
@@ -220,6 +235,8 @@ import OSLog
         workoutEntries = []
         strengthPlan = .sample
         workoutSettings = .default
+        dailyWorkoutLogs = []
+        todayWorkoutPick = nil
         completedStrengthIDs = []
         pomodoroSessions = []
         pomodoroSettings = .default
@@ -245,6 +262,7 @@ import OSLog
         }
         if hasCompletedOnboarding {
             checkAlarmsOnTick()
+            checkDailyWorkoutOnTick()
             if Calendar.current.component(.minute, from: now) == 0 {
                 pruneDismissedAlarmKeys()
             }
@@ -1088,6 +1106,41 @@ import OSLog
         let minutes = max(1, Int(workoutElapsed / 60.0))
         let kind = activeWorkoutKind ?? .strength
         workoutEntries.append(WorkoutEntry(date: .now, kind: kind, minutes: minutes))
+        let completedLiftIDs = completedStrengthIDs
+        switch kind {
+        case .cardio:
+            pickTodayWorkout(focus: "Cardio", isRestDay: true)
+            addTodayWalk(minutes: minutes)
+        case .strength:
+            let day = todayStrengthDay
+            pickTodayWorkout(focus: day.focus, isRestDay: day.isRestDay)
+            let loggedLifts = day.exercises.filter { completedLiftIDs.contains($0.id) }
+            if loggedLifts.isEmpty {
+                for exercise in day.exercises {
+                    addTodayLift(
+                        name: exercise.name,
+                        sets: exercise.sets,
+                        reps: exercise.reps,
+                        weightKg: exercise.weightKg
+                    )
+                }
+            } else {
+                for exercise in loggedLifts {
+                    addTodayLift(
+                        name: exercise.name,
+                        sets: exercise.sets,
+                        reps: exercise.reps,
+                        weightKg: exercise.weightKg
+                    )
+                }
+            }
+            if todayWorkoutActivities.isEmpty {
+                addTodayActivity(name: "Strength session", minutes: minutes)
+            }
+        default:
+            pickTodayWorkout(focus: kind.title, isRestDay: false)
+            addTodayActivity(name: kind.title, minutes: minutes)
+        }
         cancelWorkout()
     }
 
@@ -1104,6 +1157,288 @@ import OSLog
 
     var todayStrengthDay: StrengthDayPlan {
         strengthDay(for: todayWeekday)
+    }
+
+    var todayWorkoutDayKey: String {
+        Self.dayKey(for: now)
+    }
+
+    var plannedTodayFocus: String {
+        todayStrengthDay.focus
+    }
+
+    var activeTodayFocus: String {
+        if let pick = todayWorkoutPick, pick.dayKey == todayWorkoutDayKey {
+            return pick.focus
+        }
+        if let log = dailyWorkoutLog(for: now) {
+            return log.focus
+        }
+        return plannedTodayFocus
+    }
+
+    var activeTodayLabel: String {
+        let focus = activeTodayFocus.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = focus.lowercased()
+        if lower == "cardio" { return "Cardio" }
+        if lower == "rest" || todayWorkoutPick?.isOffDay == true { return "Rest" }
+        if focus.isEmpty || lower == "workout" { return "Workout" }
+        return focus
+    }
+
+    var hasPickedTodayWorkout: Bool {
+        todayWorkoutPick?.dayKey == todayWorkoutDayKey
+    }
+
+    var hasLoggedTodayWorkout: Bool {
+        dailyWorkoutLog(for: now) != nil
+    }
+
+    var todayWorkoutActivities: [DailyWorkoutActivity] {
+        if let log = dailyWorkoutLog(for: now) {
+            return log.activities
+        }
+        if let pick = todayWorkoutPick, pick.dayKey == todayWorkoutDayKey {
+            return pick.activities
+        }
+        return []
+    }
+
+    func activityDisplayLabel(_ activity: DailyWorkoutActivity) -> String {
+        switch activity.kind {
+        case .lift:
+            let weight = liftWeightLabel(activity.weightKg)
+            return "\(activity.name) \(activity.sets)×\(activity.reps) @ \(weight)"
+        case .walk:
+            if activity.minutes > 0 {
+                return "Walked \(activity.minutes) min"
+            }
+            return "Walk"
+        case .activity:
+            if activity.minutes > 0 {
+                return "\(activity.name) · \(activity.minutes) min"
+            }
+            return activity.name
+        }
+    }
+
+    func logActivitySummary(_ log: DailyWorkoutLog) -> String {
+        if log.activities.isEmpty {
+            return log.dayTypeLabel
+        }
+        return log.activities.map { activityDisplayLabel($0) }.joined(separator: " · ")
+    }
+
+    var suggestedWorkoutFocuses: [String] {
+        var names = ["Rest", "Cardio"]
+        let planned = plannedTodayFocus.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !planned.isEmpty {
+            let lower = planned.lowercased()
+            if lower != "rest", lower != "cardio", lower != "workout",
+               !names.contains(where: { $0.caseInsensitiveCompare(planned) == ComparisonResult.orderedSame }) {
+                names.append(planned)
+            }
+        }
+        for day in strengthPlan.days {
+            let focus = day.focus.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !focus.isEmpty else { continue }
+            let lower = focus.lowercased()
+            if lower == "rest" || lower == "cardio" || lower == "workout" { continue }
+            if !names.contains(where: { $0.caseInsensitiveCompare(focus) == ComparisonResult.orderedSame }) {
+                names.append(focus)
+            }
+        }
+        return names
+    }
+
+    var recentDailyWorkoutLogs: [DailyWorkoutLog] {
+        dailyWorkoutLogs.sorted { $0.day > $1.day }.prefix(7).map { $0 }
+    }
+
+    var daysSinceLastWeightLog: Int {
+        guard let latest = weightEntries.max(by: { $0.date < $1.date })?.date else { return 99 }
+        let start = Calendar.current.startOfDay(for: latest)
+        let today = Calendar.current.startOfDay(for: now)
+        return Calendar.current.dateComponents([.day], from: start, to: today).day ?? 99
+    }
+
+    var shouldShowWeightCheckIn: Bool {
+        guard hasCompletedOnboarding else { return false }
+        guard daysSinceLastWeightLog >= 3 else { return false }
+        let promptDays: Set<Weekday> = [.monday, .wednesday, .friday, .sunday]
+        guard promptDays.contains(todayWeekday) else { return false }
+        return !dismissedWeightPromptDayKeys.contains(todayWorkoutDayKey)
+    }
+
+    func dailyWorkoutLog(for date: Date) -> DailyWorkoutLog? {
+        let key = Self.dayKey(for: date)
+        return dailyWorkoutLogs.first { Self.dayKey(for: $0.day) == key }
+    }
+
+    func workoutDisplay(for date: Date) -> (focus: String, isCardio: Bool, isOff: Bool, isLogged: Bool) {
+        if let log = dailyWorkoutLog(for: date) {
+            return (log.focus, log.isCardioDay, log.isOffDay, true)
+        }
+        if WorkoutCalendar.isSameDay(date, now), let pick = todayWorkoutPick, pick.dayKey == Self.dayKey(for: date) {
+            return (pick.focus, pick.isCardioDay, pick.isOffDay, false)
+        }
+        let weekday = Weekday(rawValue: Calendar.current.component(.weekday, from: date)) ?? .monday
+        let plan = strengthDay(for: weekday)
+        return (plan.focus, plan.isCardioDay, plan.isOffDay, false)
+    }
+
+    func pickTodayWorkout(focus: String, isRestDay: Bool) {
+        let trimmed = focus.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let lower = trimmed.lowercased()
+        let restDay = isRestDay || lower == "rest" || lower == "cardio"
+        let existingActivities = todayWorkoutPick?.dayKey == todayWorkoutDayKey
+            ? todayWorkoutPick?.activities ?? []
+            : []
+        todayWorkoutPick = TodayWorkoutPick(
+            dayKey: todayWorkoutDayKey,
+            focus: trimmed,
+            isRestDay: restDay,
+            activities: existingActivities
+        )
+    }
+
+    func addTodayWalk(minutes: Int = 30) {
+        if dailyWorkoutLog(for: now) == nil {
+            ensureTodayWorkoutPick(defaultFocus: "Cardio", isRestDay: true)
+        }
+        appendTodayActivity(.walk(minutes: minutes))
+    }
+
+    func addTodayLift(name: String, sets: Int, reps: Int, weightKg: Double) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if dailyWorkoutLog(for: now) == nil {
+            ensureTodayWorkoutPick()
+        }
+        appendTodayActivity(.lift(name: trimmed, sets: max(1, sets), reps: max(1, reps), weightKg: max(0, weightKg)))
+        if var pick = todayWorkoutPick, pick.dayKey == todayWorkoutDayKey, pick.isOffDay {
+            pick.focus = trimmed
+            pick.isRestDay = false
+            todayWorkoutPick = pick
+        }
+    }
+
+    func addTodayActivity(name: String, minutes: Int = 0) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if dailyWorkoutLog(for: now) == nil {
+            ensureTodayWorkoutPick()
+        }
+        appendTodayActivity(.activity(name: trimmed, minutes: max(0, minutes)))
+    }
+
+    func removeTodayWorkoutActivity(_ id: UUID) {
+        if let index = dailyWorkoutLogs.firstIndex(where: { Self.dayKey(for: $0.day) == todayWorkoutDayKey }) {
+            dailyWorkoutLogs[index].activities.removeAll { $0.id == id }
+            return
+        }
+        guard var pick = todayWorkoutPick, pick.dayKey == todayWorkoutDayKey else { return }
+        pick.activities.removeAll { $0.id == id }
+        todayWorkoutPick = pick
+    }
+
+    private func ensureTodayWorkoutPick(defaultFocus: String? = nil, isRestDay: Bool? = nil) {
+        if todayWorkoutPick?.dayKey == todayWorkoutDayKey { return }
+        if dailyWorkoutLog(for: now) != nil { return }
+        let plan = todayStrengthDay
+        let focus = defaultFocus ?? plan.focus
+        let rest = isRestDay ?? plan.isRestDay
+        todayWorkoutPick = TodayWorkoutPick(
+            dayKey: todayWorkoutDayKey,
+            focus: focus,
+            isRestDay: rest
+        )
+    }
+
+    private func appendTodayActivity(_ activity: DailyWorkoutActivity) {
+        if let index = dailyWorkoutLogs.firstIndex(where: { Self.dayKey(for: $0.day) == todayWorkoutDayKey }) {
+            dailyWorkoutLogs[index].activities.append(activity)
+            return
+        }
+        if todayWorkoutPick?.dayKey != todayWorkoutDayKey {
+            ensureTodayWorkoutPick()
+        }
+        guard var pick = todayWorkoutPick, pick.dayKey == todayWorkoutDayKey else { return }
+        pick.activities.append(activity)
+        todayWorkoutPick = pick
+    }
+
+    func dismissWeightCheckInForToday() {
+        dismissedWeightPromptDayKeys.insert(todayWorkoutDayKey)
+        save()
+    }
+
+    func recordWeightCheckIn(_ kilograms: Double) {
+        logWeight(kilograms)
+        dismissedWeightPromptDayKeys.insert(todayWorkoutDayKey)
+    }
+
+    static func dayKey(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .current
+        return formatter.string(from: Calendar.current.startOfDay(for: date))
+    }
+
+    private func normalizeTodayWorkoutPick() {
+        guard let pick = todayWorkoutPick else { return }
+        if pick.dayKey != todayWorkoutDayKey {
+            finalizeWorkoutDay(dayKey: pick.dayKey, pick: pick, passive: true)
+            todayWorkoutPick = nil
+        }
+    }
+
+    @MainActor
+    private func checkDailyWorkoutOnTick() {
+        let calendar = Calendar.current
+        let todayKey = todayWorkoutDayKey
+        let hour = calendar.component(.hour, from: now)
+        let minute = calendar.component(.minute, from: now)
+
+        if let pick = todayWorkoutPick, pick.dayKey != todayKey {
+            finalizeWorkoutDay(dayKey: pick.dayKey, pick: pick, passive: true)
+            todayWorkoutPick = nil
+        }
+
+        guard minute < 30 else { return }
+
+        if hour >= 22, lastDailyWorkoutFinalizeDayKey != todayKey {
+            if let pick = todayWorkoutPick, pick.dayKey == todayKey {
+                finalizeWorkoutDay(dayKey: todayKey, pick: pick, passive: true)
+            }
+            lastDailyWorkoutFinalizeDayKey = todayKey
+        }
+    }
+
+    private func finalizeWorkoutDay(dayKey: String, pick: TodayWorkoutPick, passive: Bool) {
+        guard dailyWorkoutLogs.first(where: { Self.dayKey(for: $0.day) == dayKey }) == nil else { return }
+        guard let dayDate = Self.date(fromDayKey: dayKey) else { return }
+        dailyWorkoutLogs.append(
+            DailyWorkoutLog(
+                day: dayDate,
+                focus: pick.focus,
+                isRestDay: pick.isRestDay,
+                loggedAt: now,
+                wasPassive: passive,
+                activities: pick.activities
+            )
+        )
+        if pick.dayKey == todayWorkoutDayKey {
+            todayWorkoutPick = nil
+        }
+    }
+
+    private static func date(fromDayKey key: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .current
+        return formatter.date(from: key)
     }
 
     func strengthDay(for weekday: Weekday) -> StrengthDayPlan {
@@ -1382,6 +1717,8 @@ private struct PersistedState: Codable {
     var workoutEntries: [WorkoutEntry]?
     var strengthPlan: StrengthWeekPlan?
     var workoutSettings: WorkoutSettings?
+    var dailyWorkoutLogs: [DailyWorkoutLog]?
+    var todayWorkoutPick: TodayWorkoutPick?
     var completedStrengthIDs: [UUID]?
     var isSleeping: Bool?
     var sleepStartedAt: Date?
@@ -1392,6 +1729,7 @@ private struct PersistedState: Codable {
     var dataOwnerUserId: String?
     var fastingEntries: [FastingEntry]?
     var dismissedAlarmDayKeys: [String]?
+    var dismissedWeightPromptDayKeys: [String]?
 }
 
 extension WellnessStore {
@@ -1421,6 +1759,8 @@ extension WellnessStore {
                 workoutEntries: [],
                 strengthPlan: .sample,
                 workoutSettings: .default,
+                dailyWorkoutLogs: [],
+                todayWorkoutPick: nil,
                 completedStrengthIDs: [],
                 isSleeping: false,
                 sleepStartedAt: nil,
@@ -1430,7 +1770,8 @@ extension WellnessStore {
                 authUser: nil,
                 dataOwnerUserId: nil,
                 fastingEntries: [],
-                dismissedAlarmDayKeys: []
+                dismissedAlarmDayKeys: [],
+                dismissedWeightPromptDayKeys: []
             )
         }
     }
@@ -1454,6 +1795,8 @@ extension WellnessStore {
             workoutEntries: workoutEntries,
             strengthPlan: strengthPlan,
             workoutSettings: workoutSettings,
+            dailyWorkoutLogs: dailyWorkoutLogs,
+            todayWorkoutPick: todayWorkoutPick,
             completedStrengthIDs: completedStrengthIDs,
             isSleeping: isSleeping,
             sleepStartedAt: sleepStartedAt,
@@ -1463,7 +1806,8 @@ extension WellnessStore {
             authUser: authUser,
             dataOwnerUserId: dataOwnerUserId,
             fastingEntries: fastingEntries,
-            dismissedAlarmDayKeys: Array(dismissedAlarmDayKeys)
+            dismissedAlarmDayKeys: Array(dismissedAlarmDayKeys),
+            dismissedWeightPromptDayKeys: Array(dismissedWeightPromptDayKeys)
         )
         do {
             let data = try JSONEncoder().encode(state)

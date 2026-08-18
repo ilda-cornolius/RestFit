@@ -56,7 +56,7 @@ struct JournalView: View {
                     .padding(.horizontal, 24)
                 }
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, AppLayout.scrollTailPadding)
         }
         .sheet(isPresented: $showComposer) {
             JournalComposerSheet(entry: editingEntry)

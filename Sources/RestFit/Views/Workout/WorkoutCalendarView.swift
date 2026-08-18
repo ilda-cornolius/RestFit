@@ -182,7 +182,7 @@ struct AeroWorkoutCalendar: View {
                     .font(.system(size: 13.0, weight: isSelected(day) ? .bold : .semibold))
                     .foregroundStyle(day.inCurrentMonth ? Color.white : Color.white.opacity(0.28))
                 Circle()
-                    .fill(dayMark(day.weekday))
+                    .fill(dayMark(day))
                     .frame(width: 6.0, height: 6.0)
                     .opacity(day.inCurrentMonth ? 1.0 : 0.25)
             }
@@ -206,10 +206,10 @@ struct AeroWorkoutCalendar: View {
         WorkoutCalendar.isSameDay(day.date, Date())
     }
 
-    private func dayMark(_ weekday: Weekday) -> Color {
-        let plan = store.strengthDay(for: weekday)
-        if plan.isCardioDay { return RestFitTheme.coral }
-        if plan.isOffDay { return RestFitTheme.faint }
+    private func dayMark(_ day: WorkoutMonthDay) -> Color {
+        let display = store.workoutDisplay(for: day.date)
+        if display.isCardio { return RestFitTheme.coral }
+        if display.isOff { return RestFitTheme.faint }
         return RestFitTheme.mint
     }
 

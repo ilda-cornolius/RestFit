@@ -26,13 +26,19 @@ enum AppTab: String, Hashable, CaseIterable {
         case .profile: "person.fill"
         }
     }
+
+    var barIndex: Int {
+        Self.barTabs.firstIndex(of: self) ?? 0
+    }
 }
 
 struct ContentView: View {
     @State private var store = WellnessStore()
     @State private var selectedTab: AppTab = .home
+    @State private var tabTransitionForward = true
     @State private var showLogSleep = false
     @State private var showAddWeight = false
+    @State private var showWeightCheckIn = false
 
     var body: some View {
         Group {
@@ -62,6 +68,20 @@ struct ContentView: View {
             AddWeightSheet()
                 .environment(store)
         }
+        .sheet(isPresented: $showWeightCheckIn) {
+            WeightCheckInSheet()
+                .environment(store)
+        }
+        .onChange(of: store.shouldShowWeightCheckIn) { _, shouldShow in
+            if shouldShow, store.hasCompletedOnboarding, store.isSignedIn {
+                showWeightCheckIn = true
+            }
+        }
+        .onAppear {
+            if store.shouldShowWeightCheckIn, store.hasCompletedOnboarding, store.isSignedIn {
+                showWeightCheckIn = true
+            }
+        }
         .task {
             while !Task.isCancelled {
                 store.tick()
@@ -73,16 +93,29 @@ struct ContentView: View {
     private var mainApp: some View {
         GeometryReader { geo in
             let contentMax = Self.preferredContentWidth(for: geo.size.width)
+            let homeInset = geo.safeAreaInsets.bottom
+            let tabBarHeight = AppLayout.tabBarHeight(homeIndicatorInset: homeInset)
+
             ZStack(alignment: .bottom) {
                 RestFitTheme.canvas.ignoresSafeArea()
 
-                VStack(spacing: 0) {
+                ZStack {
                     tabContent
-                        .frame(maxWidth: contentMax)
-                        .frame(maxWidth: .infinity)
+                        .id(selectedTab)
+                        .transition(AppLayout.tabScreenTransition(forward: tabTransitionForward))
                 }
+                    .frame(maxWidth: contentMax)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.bottom, tabBarHeight)
+                    .clipped()
 
-                BottomTabBar(selectedTab: $selectedTab)
+                BottomTabBar(
+                    selectedTab: Binding(
+                        get: { selectedTab },
+                        set: { selectTab($0) }
+                    ),
+                    homeIndicatorInset: homeInset
+                )
                     .frame(maxWidth: contentMax)
                     .frame(maxWidth: .infinity)
             }
@@ -102,28 +135,36 @@ struct ContentView: View {
         return min(440.0, max(320.0, width))
     }
 
+    private func selectTab(_ tab: AppTab) {
+        guard tab != selectedTab else { return }
+        tabTransitionForward = tab.barIndex > selectedTab.barIndex
+        withAnimation(AppLayout.tabSwitchAnimation) {
+            selectedTab = tab
+        }
+    }
+
     @ViewBuilder
     private var tabContent: some View {
         switch selectedTab {
         case .home:
             HomeView(
                 onAddWeight: { showAddWeight = true },
-                onOpenSleep: { selectedTab = .sleep },
-                onProfile: { selectedTab = .profile }
+                onOpenSleep: { selectTab(.sleep) },
+                onProfile: { selectTab(.profile) }
             )
         case .fast:
-            FastingView(onProfile: { selectedTab = .profile })
+            FastingView(onProfile: { selectTab(.profile) })
         case .sleep:
             SleepView(
                 onManualLog: { showLogSleep = true },
-                onProfile: { selectedTab = .profile }
+                onProfile: { selectTab(.profile) }
             )
         case .workout:
-            WorkoutView(onProfile: { selectedTab = .profile })
+            WorkoutView(onProfile: { selectTab(.profile) })
         case .alarm:
-            AlarmView(onProfile: { selectedTab = .profile })
+            AlarmView(onProfile: { selectTab(.profile) })
         case .profile:
-            ProfileView(onProfile: { selectedTab = .profile })
+            ProfileView(onProfile: { selectTab(.profile) })
         }
     }
 }
@@ -170,7 +211,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 24)
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, AppLayout.scrollTailPadding)
         }
     }
 
@@ -216,6 +257,11 @@ struct CardioDayReminderCard: View {
 struct BottomTabBar: View {
     @Environment(WellnessStore.self) private var store
     @Binding var selectedTab: AppTab
+    var homeIndicatorInset: CGFloat = 0
+
+    private var bottomPadding: CGFloat {
+        AppLayout.tabBarBottomPadding(homeIndicatorInset: homeIndicatorInset)
+    }
 
     var body: some View {
         HStack {
@@ -223,7 +269,7 @@ struct BottomTabBar: View {
                 Button {
                     selectedTab = tab
                 } label: {
-                    VStack(spacing: 4.0) {
+                    VStack(spacing: 3.0) {
                         tabIcon(tab)
                             .overlay(alignment: .top) {
                                 if selectedTab == tab {
@@ -240,20 +286,25 @@ struct BottomTabBar: View {
                             .foregroundStyle(selectedTab == tab ? RestFitTheme.mint : RestFitTheme.faint)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 4.0)
+                    .padding(.top, 2.0)
                 }
                 .buttonStyle(.plain)
             }
         }
+        .animation(AppLayout.tabSwitchAnimation, value: selectedTab)
         .padding(.horizontal, 8.0)
-        .padding(.top, 10.0)
-        .padding(.bottom, 8.0)
-        .background(RestFitTheme.surface.opacity(0.95))
+        .padding(.top, 6.0)
+        .padding(.bottom, bottomPadding)
+        .background {
+            RestFitTheme.surface.opacity(0.95)
+                .ignoresSafeArea(edges: .bottom)
+        }
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(RestFitTheme.line.opacity(0.4))
                 .frame(height: 1)
         }
+        .ignoresSafeArea(edges: .bottom)
     }
 
     @ViewBuilder
@@ -332,7 +383,7 @@ struct FastingView: View {
                         .padding(.horizontal, 24)
                 }
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, AppLayout.scrollTailPadding)
         }
         .alert("Clear all fast history?", isPresented: $showClearFastHistory) {
             Button("Cancel", role: .cancel) {}
@@ -383,7 +434,7 @@ struct SleepView: View {
                         .padding(.horizontal, 24)
                 }
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, AppLayout.scrollTailPadding)
         }
         .alert("Clear all sleep history?", isPresented: $showClearSleepHistory) {
             Button("Cancel", role: .cancel) {}
@@ -785,7 +836,7 @@ struct ProfileView: View {
                 }
                 .padding(.horizontal, 24)
             }
-            .padding(.bottom, keyboard.isPresented ? 360.0 : 120.0)
+            .padding(.bottom, keyboard.isPresented ? 360.0 : AppLayout.scrollTailPadding)
             }
 
             if showProfileSaved {
