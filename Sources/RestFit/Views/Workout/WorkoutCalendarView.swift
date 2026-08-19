@@ -22,6 +22,18 @@ enum WorkoutCalendar {
         return formatter.string(from: date)
     }
 
+    static func compactDateTitle(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+
+    static func compactDateTimeTitle(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE MMM d h:mm a"
+        return formatter.string(from: date)
+    }
+
     static func startOfMonth(_ date: Date) -> Date {
         let calendar = Calendar.current
         let parts = calendar.dateComponents([.year, .month], from: date)

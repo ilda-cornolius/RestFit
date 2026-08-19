@@ -140,14 +140,19 @@ struct StrengthPlanView: View {
     private var weekCard: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Text("This week")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("This week")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+                        Text(WorkoutCalendar.compactDateTimeTitle(store.now))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(RestFitTheme.mint)
+                    }
                     Spacer()
                     Text(store.workoutSettings.weekRangeLabel)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(RestFitTheme.mint)
+                        .foregroundStyle(RestFitTheme.muted)
                 }
                 Text(store.workoutSettings.trainingNotes.isEmpty
                      ? "Set each day as Rest, Cardio, or Workout."
