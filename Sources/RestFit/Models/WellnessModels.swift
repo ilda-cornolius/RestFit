@@ -723,6 +723,26 @@ struct WorkoutEntry: Identifiable, Codable, Hashable {
     }
 }
 
+/// One day of data for workout-tab activity charts (last 7 days).
+struct WorkoutDayChartPoint: Identifiable, Hashable {
+    let dayKey: String
+    let label: String
+    let cardioMinutes: Int
+    let workoutMinutes: Int
+    let dayType: WorkoutChartDayType
+
+    var id: String { dayKey }
+
+    var isRestDay: Bool { dayType == .rest }
+
+    enum WorkoutChartDayType: String, Hashable {
+        case rest
+        case cardio
+        case workout
+        case none
+    }
+}
+
 /// A single thing you did today — a lift with weight, a walk, or any activity.
 struct DailyWorkoutActivity: Identifiable, Codable, Hashable {
     let id: UUID

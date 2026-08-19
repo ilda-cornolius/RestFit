@@ -985,6 +985,110 @@ import OSLog
         Array(workoutEntries.sorted { $0.date > $1.date }.prefix(8))
     }
 
+    var workoutWeekChartPoints: [WorkoutDayChartPoint] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        return (0..<7).reversed().compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { return nil }
+            return workoutChartPoint(for: date)
+        }
+    }
+
+    private func workoutChartPoint(for date: Date) -> WorkoutDayChartPoint {
+        let key = Self.dayKey(for: date)
+        let cardio = cardioMinutes(on: date)
+        let workout = workoutMinutes(on: date)
+        let dayType = resolvedChartDayType(for: date, cardioMinutes: cardio, workoutMinutes: workout)
+        return WorkoutDayChartPoint(
+            dayKey: key,
+            label: Self.chartDayLabel(for: date),
+            cardioMinutes: cardio,
+            workoutMinutes: workout,
+            dayType: dayType
+        )
+    }
+
+    private func cardioMinutes(on date: Date) -> Int {
+        let key = Self.dayKey(for: date)
+        var total = workoutEntries
+            .filter { Self.dayKey(for: $0.date) == key && ($0.kind == .cardio || $0.kind == .walk) }
+            .reduce(0) { $0 + $1.minutes }
+        total += loggedActivityMinutes(on: date, cardio: true)
+        return total
+    }
+
+    private func workoutMinutes(on date: Date) -> Int {
+        let key = Self.dayKey(for: date)
+        var total = workoutEntries
+            .filter { Self.dayKey(for: $0.date) == key && $0.kind != .cardio && $0.kind != .walk }
+            .reduce(0) { $0 + $1.minutes }
+        total += loggedActivityMinutes(on: date, cardio: false)
+        return total
+    }
+
+    private func loggedActivityMinutes(on date: Date, cardio: Bool) -> Int {
+        let activities: [DailyWorkoutActivity]
+        if let log = dailyWorkoutLog(for: date) {
+            activities = log.activities
+        } else if WorkoutCalendar.isSameDay(date, now),
+                  let pick = todayWorkoutPick,
+                  pick.dayKey == Self.dayKey(for: date) {
+            activities = pick.activities
+        } else {
+            return 0
+        }
+        return activities.reduce(0) { partial, activity in
+            partial + activityChartMinutes(activity, cardio: cardio)
+        }
+    }
+
+    private func activityChartMinutes(_ activity: DailyWorkoutActivity, cardio: Bool) -> Int {
+        let minutes = max(activity.minutes, 0)
+        switch activity.kind {
+        case .walk:
+            return cardio ? minutes : 0
+        case .lift:
+            return cardio ? 0 : minutes
+        case .activity:
+            let name = activity.name.lowercased()
+            let isCardioActivity = name.contains("walk")
+                || name.contains("cardio")
+                || name.contains("run")
+                || name.contains("bike")
+            if cardio && isCardioActivity { return minutes }
+            if !cardio && !isCardioActivity { return minutes }
+            return 0
+        }
+    }
+
+    private func resolvedChartDayType(
+        for date: Date,
+        cardioMinutes: Int,
+        workoutMinutes: Int
+    ) -> WorkoutDayChartPoint.WorkoutChartDayType {
+        if cardioMinutes > 0 && workoutMinutes == 0 { return .cardio }
+        if workoutMinutes > 0 { return .workout }
+        if let log = dailyWorkoutLog(for: date) {
+            if log.isCardioDay { return .cardio }
+            if log.isOffDay { return .rest }
+            return .workout
+        }
+        if WorkoutCalendar.isSameDay(date, now),
+           let pick = todayWorkoutPick,
+           pick.dayKey == Self.dayKey(for: date) {
+            if pick.isCardioDay { return .cardio }
+            if pick.isOffDay { return .rest }
+            return .workout
+        }
+        return .none
+    }
+
+    static func chartDayLabel(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEEE"
+        return formatter.string(from: date)
+    }
+
     var weeklyWorkoutMinutes: Int {
         let start = currentWeekStart
         return workoutEntries

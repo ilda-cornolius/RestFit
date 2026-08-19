@@ -72,7 +72,7 @@ struct StrengthPlanView: View {
                             .padding(.horizontal, 24)
                     }
                     // PastFeatures: TodayWorkoutCard + dailyWorkoutHistoryCard — see PastFeatures.swift
-                    recentWorkoutsCard
+                    workoutActivityChartsCard
                         .padding(.horizontal, 24)
                 }
             }
@@ -432,51 +432,122 @@ struct StrengthPlanView: View {
         }
     }
 
-    private var recentWorkoutsCard: some View {
-        SurfaceCard {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Recent Workouts")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+    private var workoutActivityChartsCard: some View {
+        let points = store.workoutWeekChartPoints
+        let labels = points.map(\.label)
+        let hasData = points.contains { point in
+            point.cardioMinutes > 0 || point.workoutMinutes > 0 || point.dayType != .none
+        }
 
-                if store.workoutEntries.isEmpty {
-                    Text("No workouts yet. Start a session to build a streak.")
+        return SurfaceCard {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Weekly activity")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text("Last 7 days")
                         .font(.caption)
                         .foregroundStyle(RestFitTheme.muted)
-                } else {
-                    ForEach(store.recentWorkouts) { entry in
-                        HStack {
-                            Image(systemName: entry.kind.icon)
-                                .foregroundStyle(RestFitTheme.mint)
-                                .frame(width: 28)
+                }
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(entry.kind.title)
-                                    .foregroundStyle(.white)
-                                Text(entry.date.formatted(date: .abbreviated, time: .omitted))
-                                    .font(.caption)
-                                    .foregroundStyle(RestFitTheme.muted)
-                            }
+                if !hasData {
+                    Text("Finish a session or mark your day done to start filling in these charts.")
+                        .font(.caption)
+                        .foregroundStyle(RestFitTheme.muted)
+                }
 
-                            Spacer()
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("What you did each day")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(RestFitTheme.muted)
+                    DailyTypeStripChart(points: points)
+                        .frame(height: 88)
+                    chartLegend
+                }
 
-                            Text(entry.durationLabel)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(RestFitTheme.mint)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Cardio")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(RestFitTheme.muted)
+                        Spacer()
+                        Text("\(points.reduce(0) { $0 + $1.cardioMinutes }) min total")
+                            .font(.caption2)
+                            .foregroundStyle(RestFitTheme.faint)
+                    }
+                    BarTrendChart(
+                        values: points.map { Double($0.cardioMinutes) },
+                        labels: labels,
+                        color: RestFitTheme.coral
+                    )
+                    .frame(height: 100)
+                }
 
-                            Button {
-                                store.deleteWorkout(entry)
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.caption)
-                                    .foregroundStyle(RestFitTheme.faint)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.vertical, 4)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Workouts")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(RestFitTheme.muted)
+                        Spacer()
+                        Text("\(points.reduce(0) { $0 + $1.workoutMinutes }) min total")
+                            .font(.caption2)
+                            .foregroundStyle(RestFitTheme.faint)
+                    }
+                    BarTrendChart(
+                        values: points.map { Double($0.workoutMinutes) },
+                        labels: labels,
+                        color: RestFitTheme.mint
+                    )
+                    .frame(height: 100)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Rest days")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(RestFitTheme.muted)
+                    BarTrendChart(
+                        values: points.map { $0.isRestDay ? 1.0 : 0.0 },
+                        labels: labels,
+                        color: RestFitTheme.faint
+                    )
+                    .frame(height: 88)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("All activity")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(RestFitTheme.muted)
+                    StackedMinutesChart(
+                        cardioValues: points.map { Double($0.cardioMinutes) },
+                        workoutValues: points.map { Double($0.workoutMinutes) },
+                        labels: labels
+                    )
+                    .frame(height: 100)
+                    HStack(spacing: 16) {
+                        chartLegendItem(color: RestFitTheme.coral, title: "Cardio min")
+                        chartLegendItem(color: RestFitTheme.mint, title: "Workout min")
                     }
                 }
             }
+        }
+    }
+
+    private var chartLegend: some View {
+        HStack(spacing: 16) {
+            chartLegendItem(color: RestFitTheme.faint, title: "Rest")
+            chartLegendItem(color: RestFitTheme.coral, title: "Cardio")
+            chartLegendItem(color: RestFitTheme.mint, title: "Workout")
+        }
+    }
+
+    private func chartLegendItem(color: Color, title: String) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(color)
+                .frame(width: 10, height: 10)
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(RestFitTheme.faint)
         }
     }
 
