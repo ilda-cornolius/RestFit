@@ -56,7 +56,7 @@ struct ContentView: View {
         .overlay {
             ZStack {
                 AeroKeyboardOverlay()
-                AlarmRingOverlay()
+                AlarmRingOverlay(store: store)
             }
         }
         .preferredColorScheme(.dark)

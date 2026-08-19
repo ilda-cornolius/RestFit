@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AlarmRingOverlay: View {
     private var ring: AlarmRingController { AlarmRingController.shared }
-    @Environment(WellnessStore.self) private var store
+    var store: WellnessStore
     @State private var pulse = false
     @State private var spin = false
 
