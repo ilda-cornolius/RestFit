@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "611638882841-07pqp8g34ucfqdl80v6crrif3bo2uni5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.restfit.app",
+            "certificate_hash": "cf50e6e517f30fa3b81ecbb12391772f697a3957"
+          }
+        },
+        {
           "client_id": "611638882841-57bhpns56krogbkpuv4e0nnc4c5sppdk.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

@@ -105,6 +105,7 @@ struct AeroTextField: View {
     var mode: AeroKeyboardMode = .text
     var placeholder: String = ""
     var minHeight: CGFloat = 58.0
+    var trailingLabel: String?
 
     var body: some View {
         let isActive = keyboard.isPresented && keyboard.activeFieldTitle == title
@@ -129,9 +130,15 @@ struct AeroTextField: View {
                         .foregroundStyle(text.isEmpty ? RestFitTheme.faint : .white)
                         .lineLimit(1)
                     Spacer(minLength: 0)
-                    Image(systemName: mode == .secure ? "lock.fill" : "keyboard")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(isActive ? RestFitTheme.mint : RestFitTheme.mint.opacity(0.85))
+                    if let trailingLabel {
+                        Text(trailingLabel)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(isActive ? RestFitTheme.mint : RestFitTheme.mint.opacity(0.85))
+                    } else {
+                        Image(systemName: mode == .secure ? "lock.fill" : "keyboard")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(isActive ? RestFitTheme.mint : RestFitTheme.mint.opacity(0.85))
+                    }
                 }
                 .padding(.horizontal, 18.0)
                 .padding(.vertical, 16.0)

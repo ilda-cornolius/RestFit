@@ -58,7 +58,7 @@ struct LineTrendChart: View {
                 }
 
                 HStack {
-                    ForEach(labels, id: \.self) { label in
+                    ForEach(Array(labels.enumerated()), id: \.offset) { _, label in
                         Text(label)
                             .font(.caption2)
                             .foregroundStyle(RestFitTheme.faint)
@@ -76,38 +76,33 @@ struct BarTrendChart: View {
     let values: [Double]
     let labels: [String]
     let color: Color
+    private let labelRowHeight: CGFloat = 18.0
 
     var body: some View {
-        GeometryReader { geometry in
-            let width = Double(geometry.size.width)
-            let height = Double(geometry.size.height)
-            let maxValue = max(values.max() ?? 0.0, 1.0)
-            let slotCount = max(values.count, 1)
-            let slotWidth = width / Double(slotCount)
-            let barWidth = max(slotWidth * 0.55, 4.0)
+        VStack(spacing: 4) {
+            GeometryReader { geometry in
+                let width = Double(geometry.size.width)
+                let height = Double(geometry.size.height)
+                let maxValue = max(values.max() ?? 0.0, 1.0)
+                let slotCount = max(values.count, 1)
+                let slotWidth = width / Double(slotCount)
+                let barWidth = max(slotWidth * 0.55, 4.0)
 
-            ZStack(alignment: .bottomLeading) {
-                ForEach(Array(values.enumerated()), id: \.offset) { index, value in
-                    let barHeight = maxValue > 0 ? (value / maxValue) * height : 0.0
-                    let x = slotWidth * Double(index) + (slotWidth - barWidth) / 2.0
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(value > 0 ? color : RestFitTheme.line.opacity(0.35))
-                        .frame(width: barWidth, height: max(barHeight, value > 0 ? 4.0 : 2.0))
-                        .offset(x: x, y: height - max(barHeight, value > 0 ? 4.0 : 2.0))
-                }
-
-                HStack {
-                    ForEach(labels, id: \.self) { label in
-                        Text(label)
-                            .font(.caption2)
-                            .foregroundStyle(RestFitTheme.faint)
-                            .frame(maxWidth: .infinity)
+                ZStack(alignment: .bottomLeading) {
+                    ForEach(Array(values.enumerated()), id: \.offset) { index, value in
+                        let barHeight = maxValue > 0 ? (value / maxValue) * height : 0.0
+                        let x = slotWidth * Double(index) + (slotWidth - barWidth) / 2.0
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(value > 0 ? color : RestFitTheme.line.opacity(0.35))
+                            .frame(width: barWidth, height: max(barHeight, value > 0 ? 4.0 : 2.0))
+                            .offset(x: x, y: height - max(barHeight, value > 0 ? 4.0 : 2.0))
                     }
                 }
-                .offset(y: height + 4.0)
             }
+
+            chartDayLabels(labels)
+                .frame(height: labelRowHeight)
         }
-        .padding(.bottom, 18)
     }
 }
 
@@ -115,92 +110,82 @@ struct StackedMinutesChart: View {
     let cardioValues: [Double]
     let workoutValues: [Double]
     let labels: [String]
+    private let labelRowHeight: CGFloat = 18.0
 
     var body: some View {
-        GeometryReader { geometry in
-            let width = Double(geometry.size.width)
-            let height = Double(geometry.size.height)
-            let totals = zip(cardioValues, workoutValues).map { $0 + $1 }
-            let maxValue = max(totals.max() ?? 0.0, 1.0)
-            let slotCount = max(labels.count, 1)
-            let slotWidth = width / Double(slotCount)
-            let barWidth = max(slotWidth * 0.55, 4.0)
+        VStack(spacing: 4) {
+            GeometryReader { geometry in
+                let width = Double(geometry.size.width)
+                let height = Double(geometry.size.height)
+                let totals = zip(cardioValues, workoutValues).map { $0 + $1 }
+                let maxValue = max(totals.max() ?? 0.0, 1.0)
+                let slotCount = max(labels.count, 1)
+                let slotWidth = width / Double(slotCount)
+                let barWidth = max(slotWidth * 0.55, 4.0)
 
-            ZStack(alignment: .bottomLeading) {
-                ForEach(Array(labels.enumerated()), id: \.offset) { index, _ in
-                    let cardio = index < cardioValues.count ? cardioValues[index] : 0.0
-                    let workout = index < workoutValues.count ? workoutValues[index] : 0.0
-                    let total = cardio + workout
-                    let totalHeight = total > 0 ? (total / maxValue) * height : 0.0
-                    let cardioHeight = total > 0 ? (cardio / total) * totalHeight : 0.0
-                    let workoutHeight = total > 0 ? (workout / total) * totalHeight : 0.0
-                    let x = slotWidth * Double(index) + (slotWidth - barWidth) / 2.0
+                ZStack(alignment: .bottomLeading) {
+                    ForEach(Array(labels.enumerated()), id: \.offset) { index, _ in
+                        let cardio = index < cardioValues.count ? cardioValues[index] : 0.0
+                        let workout = index < workoutValues.count ? workoutValues[index] : 0.0
+                        let total = cardio + workout
+                        let totalHeight = total > 0 ? (total / maxValue) * height : 0.0
+                        let cardioHeight = total > 0 ? (cardio / total) * totalHeight : 0.0
+                        let workoutHeight = total > 0 ? (workout / total) * totalHeight : 0.0
+                        let x = slotWidth * Double(index) + (slotWidth - barWidth) / 2.0
 
-                    if total > 0 {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(RestFitTheme.coral)
-                            .frame(width: barWidth, height: max(cardioHeight, cardio > 0 ? 2.0 : 0.0))
-                            .offset(x: x, y: height - totalHeight)
+                        if total > 0 {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(RestFitTheme.coral)
+                                .frame(width: barWidth, height: max(cardioHeight, cardio > 0 ? 2.0 : 0.0))
+                                .offset(x: x, y: height - totalHeight)
 
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(RestFitTheme.mint)
-                            .frame(width: barWidth, height: max(workoutHeight, workout > 0 ? 2.0 : 0.0))
-                            .offset(x: x, y: height - workoutHeight)
-                    } else {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(RestFitTheme.line.opacity(0.35))
-                            .frame(width: barWidth, height: 2.0)
-                            .offset(x: x, y: height - 2.0)
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(RestFitTheme.mint)
+                                .frame(width: barWidth, height: max(workoutHeight, workout > 0 ? 2.0 : 0.0))
+                                .offset(x: x, y: height - workoutHeight)
+                        } else {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(RestFitTheme.line.opacity(0.35))
+                                .frame(width: barWidth, height: 2.0)
+                                .offset(x: x, y: height - 2.0)
+                        }
                     }
                 }
-
-                HStack {
-                    ForEach(labels, id: \.self) { label in
-                        Text(label)
-                            .font(.caption2)
-                            .foregroundStyle(RestFitTheme.faint)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .offset(y: height + 4.0)
             }
+
+            chartDayLabels(labels)
+                .frame(height: labelRowHeight)
         }
-        .padding(.bottom, 18)
     }
 }
 
 struct DailyTypeStripChart: View {
     let points: [WorkoutDayChartPoint]
+    private let labelRowHeight: CGFloat = 18.0
 
     var body: some View {
-        GeometryReader { geometry in
-            let width = Double(geometry.size.width)
-            let height = Double(geometry.size.height)
-            let slotCount = max(points.count, 1)
-            let slotWidth = width / Double(slotCount)
-            let barWidth = max(slotWidth * 0.55, 4.0)
+        VStack(spacing: 4) {
+            GeometryReader { geometry in
+                let width = Double(geometry.size.width)
+                let height = Double(geometry.size.height)
+                let slotCount = max(points.count, 1)
+                let slotWidth = width / Double(slotCount)
+                let barWidth = max(slotWidth * 0.55, 4.0)
 
-            ZStack(alignment: .bottomLeading) {
-                ForEach(Array(points.enumerated()), id: \.element.id) { index, point in
-                    let x = slotWidth * Double(index) + (slotWidth - barWidth) / 2.0
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(color(for: point.dayType))
-                        .frame(width: barWidth, height: point.dayType == .none ? 2.0 : height * 0.82)
-                        .offset(x: x, y: height - (point.dayType == .none ? 2.0 : height * 0.82))
-                }
-
-                HStack {
-                    ForEach(points) { point in
-                        Text(point.label)
-                            .font(.caption2)
-                            .foregroundStyle(RestFitTheme.faint)
-                            .frame(maxWidth: .infinity)
+                ZStack(alignment: .bottomLeading) {
+                    ForEach(Array(points.enumerated()), id: \.element.id) { index, point in
+                        let x = slotWidth * Double(index) + (slotWidth - barWidth) / 2.0
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(color(for: point.dayType))
+                            .frame(width: barWidth, height: point.dayType == .none ? 2.0 : height * 0.82)
+                            .offset(x: x, y: height - (point.dayType == .none ? 2.0 : height * 0.82))
                     }
                 }
-                .offset(y: height + 4.0)
             }
+
+            chartDayLabels(points.map(\.label))
+                .frame(height: labelRowHeight)
         }
-        .padding(.bottom, 18)
     }
 
     private func color(for type: WorkoutDayChartPoint.WorkoutChartDayType) -> Color {
@@ -209,6 +194,18 @@ struct DailyTypeStripChart: View {
         case .cardio: RestFitTheme.coral
         case .workout: RestFitTheme.mint
         case .none: RestFitTheme.line.opacity(0.35)
+        }
+    }
+}
+
+@ViewBuilder
+private func chartDayLabels(_ labels: [String]) -> some View {
+    HStack {
+        ForEach(Array(labels.enumerated()), id: \.offset) { _, label in
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(RestFitTheme.faint)
+                .frame(maxWidth: .infinity)
         }
     }
 }

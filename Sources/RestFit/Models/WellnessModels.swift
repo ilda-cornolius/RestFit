@@ -587,6 +587,12 @@ struct StrengthExercise: Identifiable, Codable, Hashable {
     }
 }
 
+/// Tracks how many sets of a lift were completed during an active strength session.
+struct CompletedStrengthSet: Codable, Hashable {
+    var exerciseID: UUID
+    var completedSets: Int
+}
+
 struct StrengthDayPlan: Identifiable, Codable, Hashable {
     let id: UUID
     var weekday: Weekday

@@ -25,5 +25,11 @@ enum AppLayout {
         AnyTransition.opacity
     }
 
+    static var workoutSessionTransition: AnyTransition {
+        AnyTransition.opacity
+    }
+
     static let tabSwitchAnimation: Animation = .easeInOut(duration: 0.28)
+
+    static let workoutSessionAnimation: Animation = .easeInOut(duration: 0.34)
 }

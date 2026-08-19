@@ -55,9 +55,11 @@ import OSLog
         didSet { save() }
     }
 
-    var completedStrengthIDs: [UUID] {
+    var completedStrengthSets: [CompletedStrengthSet] {
         didSet { save() }
     }
+
+    var activeWorkoutWeekday: Weekday?
 
     var pomodoroSessions: [PomodoroSession] {
         didSet { save() }
@@ -134,7 +136,8 @@ import OSLog
         workoutSettings = loaded.workoutSettings ?? .default
         dailyWorkoutLogs = loaded.dailyWorkoutLogs ?? []
         todayWorkoutPick = loaded.todayWorkoutPick
-        completedStrengthIDs = loaded.completedStrengthIDs ?? []
+        completedStrengthSets = loaded.completedStrengthSets ?? []
+        activeWorkoutWeekday = loaded.activeWorkoutWeekday
         pomodoroSessions = loaded.pomodoroSessions ?? []
         pomodoroSettings = loaded.pomodoroSettings ?? .default
         isFasting = loaded.isFasting
@@ -237,7 +240,8 @@ import OSLog
         workoutSettings = .default
         dailyWorkoutLogs = []
         todayWorkoutPick = nil
-        completedStrengthIDs = []
+        completedStrengthSets = []
+        activeWorkoutWeekday = nil
         pomodoroSessions = []
         pomodoroSettings = .default
         isFasting = false
@@ -1200,29 +1204,33 @@ import OSLog
         }
     }
 
-    func startWorkout(_ kind: WorkoutKind) {
+    func startWorkout(_ kind: WorkoutKind, weekday: Weekday? = nil) {
         activeWorkoutKind = kind
         workoutStartedAt = .now
         isWorkingOut = true
+        activeWorkoutWeekday = weekday ?? todayWeekday
         if kind == .strength {
-            completedStrengthIDs = []
+            completedStrengthSets = []
         }
+    }
+
+    var activeStrengthDay: StrengthDayPlan {
+        strengthDay(for: activeWorkoutWeekday ?? todayWeekday)
     }
 
     func finishWorkout() {
         let minutes = max(1, Int(workoutElapsed / 60.0))
         let kind = activeWorkoutKind ?? .strength
         workoutEntries.append(WorkoutEntry(date: .now, kind: kind, minutes: minutes))
-        let completedLiftIDs = completedStrengthIDs
         switch kind {
         case .cardio:
             pickTodayWorkout(focus: "Cardio", isRestDay: true)
             addTodayWalk(minutes: minutes)
         case .strength:
-            let day = todayStrengthDay
+            let day = activeStrengthDay
             pickTodayWorkout(focus: day.focus, isRestDay: day.isRestDay)
-            let loggedLifts = day.exercises.filter { completedLiftIDs.contains($0.id) }
-            if loggedLifts.isEmpty {
+            let loggedAnySets = completedStrengthSets.contains { $0.completedSets > 0 }
+            if !loggedAnySets {
                 for exercise in day.exercises {
                     addTodayLift(
                         name: exercise.name,
@@ -1232,10 +1240,12 @@ import OSLog
                     )
                 }
             } else {
-                for exercise in loggedLifts {
+                for exercise in day.exercises {
+                    let doneSets = completedSets(for: exercise.id)
+                    guard doneSets > 0 else { continue }
                     addTodayLift(
                         name: exercise.name,
-                        sets: exercise.sets,
+                        sets: doneSets,
                         reps: exercise.reps,
                         weightKg: exercise.weightKg
                     )
@@ -1255,7 +1265,8 @@ import OSLog
         isWorkingOut = false
         workoutStartedAt = nil
         activeWorkoutKind = nil
-        completedStrengthIDs = []
+        activeWorkoutWeekday = nil
+        completedStrengthSets = []
     }
 
     var todayWeekday: Weekday {
@@ -1659,16 +1670,36 @@ import OSLog
         upsertStrengthDay(day)
     }
 
-    func toggleStrengthExerciseDone(_ id: UUID) {
-        if completedStrengthIDs.contains(id) {
-            completedStrengthIDs.removeAll { $0 == id }
-        } else {
-            completedStrengthIDs.append(id)
-        }
+    func completedSets(for exerciseID: UUID) -> Int {
+        completedStrengthSets.first { $0.exerciseID == exerciseID }?.completedSets ?? 0
     }
 
-    func isStrengthExerciseDone(_ id: UUID) -> Bool {
-        completedStrengthIDs.contains(id)
+    func tapStrengthSet(for exercise: StrengthExercise) {
+        let current = completedSets(for: exercise.id)
+        guard current < exercise.sets else { return }
+        setCompletedSets(current + 1, for: exercise.id)
+    }
+
+    func isStrengthExerciseDone(_ exercise: StrengthExercise) -> Bool {
+        completedSets(for: exercise.id) >= exercise.sets
+    }
+
+    func totalCompletedSets(for exercises: [StrengthExercise]) -> Int {
+        exercises.reduce(0) { $0 + min(completedSets(for: $1.id), $1.sets) }
+    }
+
+    func totalPlannedSets(for exercises: [StrengthExercise]) -> Int {
+        exercises.reduce(0) { $0 + $1.sets }
+    }
+
+    private func setCompletedSets(_ count: Int, for exerciseID: UUID) {
+        if let index = completedStrengthSets.firstIndex(where: { $0.exerciseID == exerciseID }) {
+            completedStrengthSets[index].completedSets = count
+        } else {
+            completedStrengthSets.append(
+                CompletedStrengthSet(exerciseID: exerciseID, completedSets: count)
+            )
+        }
     }
 
     var liftWeightStep: Double {
@@ -1876,6 +1907,8 @@ private struct PersistedState: Codable {
     var workoutSettings: WorkoutSettings?
     var dailyWorkoutLogs: [DailyWorkoutLog]?
     var todayWorkoutPick: TodayWorkoutPick?
+    var completedStrengthSets: [CompletedStrengthSet]?
+    var activeWorkoutWeekday: Weekday?
     var completedStrengthIDs: [UUID]?
     var isSleeping: Bool?
     var sleepStartedAt: Date?
@@ -1918,7 +1951,8 @@ extension WellnessStore {
                 workoutSettings: .default,
                 dailyWorkoutLogs: [],
                 todayWorkoutPick: nil,
-                completedStrengthIDs: [],
+                completedStrengthSets: [],
+                activeWorkoutWeekday: nil,
                 isSleeping: false,
                 sleepStartedAt: nil,
                 isWorkingOut: false,
@@ -1954,7 +1988,8 @@ extension WellnessStore {
             workoutSettings: workoutSettings,
             dailyWorkoutLogs: dailyWorkoutLogs,
             todayWorkoutPick: todayWorkoutPick,
-            completedStrengthIDs: completedStrengthIDs,
+            completedStrengthSets: completedStrengthSets,
+            activeWorkoutWeekday: activeWorkoutWeekday,
             isSleeping: isSleeping,
             sleepStartedAt: sleepStartedAt,
             isWorkingOut: isWorkingOut,

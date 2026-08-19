@@ -1,16 +1,47 @@
 import SwiftUI
 
+private enum WorkoutActivityChartMode: String, CaseIterable {
+    case overview = "Overview"
+    case cardio = "Cardio"
+    case workouts = "Workouts"
+    case combined = "All"
+}
+
+private struct MintStepperButton: View {
+    let symbol: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(RestFitTheme.mint)
+                    .frame(width: 30, height: 30)
+                Text(symbol)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(RestFitTheme.canvas)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct StrengthPlanView: View {
     @Environment(WellnessStore.self) private var store
     private var keyboard: AeroKeyboardController { AeroKeyboardController.shared }
     var onProfile: () -> Void = {}
     @State private var selectedDay: Weekday = .monday
-    @State private var showComposer = false
     @State private var showSettings = false
-    @State private var editingExercise: StrengthExercise?
     @State private var customFocus = ""
     @State private var visibleMonth = Date()
     @State private var selectedDate = Date()
+    @State private var activityChartMode: WorkoutActivityChartMode = .overview
+    @State private var activeWorkoutDay: Weekday?
+    @State private var sessionDetailsVisible = false
+    @State private var draftLiftName = ""
+    @State private var draftLiftSets = 3
+    @State private var draftLiftReps = 8
+    @State private var draftLiftWeight = ""
 
     var body: some View {
         ScrollView {
@@ -36,45 +67,16 @@ struct StrengthPlanView: View {
                 }
                 .padding(.horizontal, 24)
 
-                if !store.isWorkingOut {
-                    layoutToggle
-                        .padding(.horizontal, 24)
-                }
-
-                if store.isWorkingOut {
-                    sessionCard
-                        .padding(.horizontal, 24)
-                    if store.activeWorkoutKind == .strength {
-                        todayLiftsCard
-                            .padding(.horizontal, 24)
-                    }
-                } else {
-                    if store.usesWorkoutCalendar {
-                        AeroWorkoutCalendar(
-                            selectedDay: $selectedDay,
-                            visibleMonth: $visibleMonth,
-                            onSelect: selectCalendarDay
-                        )
-                        .padding(.horizontal, 24)
+                ZStack {
+                    if store.isWorkingOut {
+                        workoutSessionContent
+                            .transition(AppLayout.workoutSessionTransition)
                     } else {
-                        weekCard
-                            .padding(.horizontal, 24)
+                        workoutPlanningContent
+                            .transition(AppLayout.workoutSessionTransition)
                     }
-                    if isViewingToday && store.hasFinishedTodaySession {
-                        editTodaySessionLink
-                            .padding(.horizontal, 24)
-                        finishedForDayCard
-                            .padding(.horizontal, 24)
-                    } else {
-                        dayCard
-                            .padding(.horizontal, 24)
-                        startCard
-                            .padding(.horizontal, 24)
-                    }
-                    // PastFeatures: TodayWorkoutCard + dailyWorkoutHistoryCard — see PastFeatures.swift
-                    workoutActivityChartsCard
-                        .padding(.horizontal, 24)
                 }
+                .animation(AppLayout.workoutSessionAnimation, value: store.isWorkingOut)
             }
             .padding(.bottom, keyboard.isPresented ? 360.0 : AppLayout.scrollTailPadding)
         }
@@ -83,13 +85,7 @@ struct StrengthPlanView: View {
             selectedDate = Date()
             visibleMonth = Date()
             customFocus = store.strengthDay(for: selectedDay).focus
-        }
-        .sheet(isPresented: $showComposer) {
-            StrengthExerciseSheet(
-                weekday: selectedDay,
-                exercise: editingExercise
-            )
-            .environment(store)
+            resetDraftLift()
         }
         .sheet(isPresented: $showSettings) {
             WorkoutSettingsView()
@@ -103,6 +99,77 @@ struct StrengthPlanView: View {
 
     private var isViewingToday: Bool {
         selectedPlan.weekday == store.todayWeekday
+    }
+
+    private var workoutPlanningContent: some View {
+        VStack(spacing: 20) {
+            layoutToggle
+                .padding(.horizontal, 24)
+
+            if store.usesWorkoutCalendar {
+                AeroWorkoutCalendar(
+                    selectedDay: $selectedDay,
+                    visibleMonth: $visibleMonth,
+                    onSelect: selectCalendarDay
+                )
+                .padding(.horizontal, 24)
+            } else {
+                weekCard
+                    .padding(.horizontal, 24)
+            }
+
+            if isViewingToday && store.hasFinishedTodaySession {
+                editTodaySessionLink
+                    .padding(.horizontal, 24)
+                finishedForDayCard
+                    .padding(.horizontal, 24)
+            } else {
+                dayCard
+                    .padding(.horizontal, 24)
+                startCard
+                    .padding(.horizontal, 24)
+            }
+
+            // PastFeatures: TodayWorkoutCard + dailyWorkoutHistoryCard — see PastFeatures.swift
+            workoutActivityChartsCard
+                .padding(.horizontal, 24)
+        }
+    }
+
+    private var workoutSessionContent: some View {
+        activeWorkoutSessionCard
+            .padding(.horizontal, 24)
+    }
+
+    private var activeSessionPlan: StrengthDayPlan {
+        store.strengthDay(for: activeWorkoutDay ?? selectedDay)
+    }
+
+    private func startWorkoutAnimated(_ kind: WorkoutKind) {
+        activeWorkoutDay = selectedDay
+        sessionDetailsVisible = false
+        withAnimation(AppLayout.workoutSessionAnimation) {
+            store.startWorkout(kind, weekday: selectedDay)
+        }
+        withAnimation(AppLayout.workoutSessionAnimation.delay(0.12)) {
+            sessionDetailsVisible = true
+        }
+    }
+
+    private func cancelWorkoutAnimated() {
+        withAnimation(AppLayout.workoutSessionAnimation) {
+            store.cancelWorkout()
+            sessionDetailsVisible = false
+            activeWorkoutDay = nil
+        }
+    }
+
+    private func finishWorkoutAnimated() {
+        withAnimation(AppLayout.workoutSessionAnimation) {
+            store.finishWorkout()
+            sessionDetailsVisible = false
+            activeWorkoutDay = nil
+        }
     }
 
     private var layoutToggle: some View {
@@ -235,7 +302,8 @@ struct StrengthPlanView: View {
                             text: $customFocus,
                             mode: AeroKeyboardMode.text,
                             placeholder: "Push, Pull, Legs...",
-                            minHeight: 48.0
+                            minHeight: 48.0,
+                            trailingLabel: "Edit"
                         )
                         Button("Save") {
                             let name = customFocus.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -253,7 +321,7 @@ struct StrengthPlanView: View {
                     }
 
                     if selectedPlan.exercises.isEmpty {
-                        Text("No lifts yet. Add the movements and working weights for this day.")
+                        Text("No lifts yet. Add your first movement below.")
                             .font(.caption)
                             .foregroundStyle(RestFitTheme.muted)
                     } else {
@@ -264,22 +332,123 @@ struct StrengthPlanView: View {
                         }
                     }
 
-                    Button {
-                        editingExercise = nil
-                        showComposer = true
-                    } label: {
-                        Text("Add lift")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(RestFitTheme.canvas)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(RestFitTheme.mint)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
+                    inlineAddLiftSection
                 }
             }
         }
+    }
+
+    private var inlineAddLiftSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Add lift")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(RestFitTheme.muted)
+
+            AeroTextField(
+                title: "Lift name",
+                text: $draftLiftName,
+                mode: AeroKeyboardMode.text,
+                placeholder: "Bench press, Squat, Row...",
+                minHeight: 48.0,
+                trailingLabel: "Edit"
+            )
+
+            HStack(spacing: 10) {
+                inlineLiftStepper(title: "Sets", value: draftLiftSets) {
+                    draftLiftSets = max(1, draftLiftSets - 1)
+                } onIncrement: {
+                    draftLiftSets = min(10, draftLiftSets + 1)
+                }
+
+                inlineLiftStepper(title: "Reps", value: draftLiftReps) {
+                    draftLiftReps = max(1, draftLiftReps - 1)
+                } onIncrement: {
+                    draftLiftReps = min(30, draftLiftReps + 1)
+                }
+            }
+
+            AeroTextField(
+                title: "Weight in \(store.weightUnitLabel)",
+                text: $draftLiftWeight,
+                mode: AeroKeyboardMode.decimal,
+                placeholder: store.usesPounds ? "45" : "20",
+                minHeight: 48.0
+            )
+
+            Button {
+                addDraftLift()
+            } label: {
+                Text("Add to plan")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.canvas)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(RestFitTheme.mint)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .background(RestFitTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(RestFitTheme.line, lineWidth: 1)
+        )
+    }
+
+    private func inlineLiftStepper(
+        title: String,
+        value: Int,
+        onDecrement: @escaping () -> Void,
+        onIncrement: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(RestFitTheme.faint)
+            HStack {
+                MintStepperButton(symbol: "−", action: onDecrement)
+                Text("\(value)")
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                MintStepperButton(symbol: "+", action: onIncrement)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .background(RestFitTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func resetDraftLift() {
+        draftLiftName = ""
+        draftLiftSets = 3
+        draftLiftReps = 8
+        draftLiftWeight = store.usesPounds ? "45" : "20"
+    }
+
+    private func addDraftLift() {
+        keyboard.dismiss(force: true)
+        let parsed = Double(draftLiftWeight) ?? (store.usesPounds ? 45.0 : 20.0)
+        let weightKg = store.kilogramsFromDisplay(max(0.0, parsed))
+        let trimmed = draftLiftName.trimmingCharacters(in: .whitespacesAndNewlines)
+        store.addStrengthExercise(
+            selectedDay,
+            exercise: StrengthExercise(
+                name: trimmed.isEmpty ? "Lift" : trimmed,
+                sets: draftLiftSets,
+                reps: draftLiftReps,
+                weightKg: weightKg
+            )
+        )
+        resetDraftLift()
+    }
+
+    private func updateExercise(_ exercise: StrengthExercise) {
+        store.updateStrengthExercise(selectedDay, exercise: exercise)
     }
 
     private var startCard: some View {
@@ -294,7 +463,7 @@ struct StrengthPlanView: View {
                         .font(.caption)
                         .foregroundStyle(RestFitTheme.muted)
                     Button {
-                        store.startWorkout(.cardio)
+                        startWorkoutAnimated(.cardio)
                     } label: {
                         Text("Start Cardio")
                             .font(.body.weight(.semibold))
@@ -319,8 +488,29 @@ struct StrengthPlanView: View {
                     Text("\(day.focus) · \(day.exercises.count) lifts")
                         .font(.caption)
                         .foregroundStyle(RestFitTheme.muted)
+
+                    if !day.exercises.isEmpty {
+                        VStack(spacing: 8) {
+                            ForEach(day.exercises) { exercise in
+                                HStack(spacing: 10) {
+                                    Text(exercise.name)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.white)
+                                    Spacer(minLength: 8)
+                                    Text(store.liftPrescription(exercise))
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(RestFitTheme.mint)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .background(RestFitTheme.card)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+                        }
+                    }
+
                     Button {
-                        store.startWorkout(.strength)
+                        startWorkoutAnimated(.strength)
                     } label: {
                         Text("Start Workout")
                             .font(.body.weight(.semibold))
@@ -387,23 +577,82 @@ struct StrengthPlanView: View {
         .padding(.top, 4)
     }
 
-    private var sessionCard: some View {
+    private var activeWorkoutSessionCard: some View {
+        let plan = activeSessionPlan
         let isStrength = store.activeWorkoutKind == .strength
+        let lifts = plan.exercises
+        let completedSets = store.totalCompletedSets(for: lifts)
+        let plannedSets = store.totalPlannedSets(for: lifts)
+
         return SurfaceCard {
-            VStack(spacing: 16) {
-                Text(isStrength ? store.todayStrengthDay.focus : (store.activeWorkoutKind?.title ?? "Workout"))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(RestFitTheme.mint)
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(isStrength ? plan.focus : (store.activeWorkoutKind?.title ?? "Workout"))
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+                        Text("\(plan.weekday.title) session")
+                            .font(.caption)
+                            .foregroundStyle(RestFitTheme.mint)
+                    }
+                    Spacer()
+                    if isStrength && plannedSets > 0 {
+                        Text("\(completedSets)/\(plannedSets) sets")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(RestFitTheme.mint)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(RestFitTheme.mint.opacity(0.15))
+                            .clipShape(Capsule())
+                    }
+                }
+
                 Text(store.workoutTimerLabel)
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
-                Text(isStrength ? "Follow the weights you set for today" : "Session in progress")
-                    .font(.caption)
-                    .foregroundStyle(RestFitTheme.muted)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+
+                Group {
+                    if isStrength {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(lifts.isEmpty
+                                 ? "No lifts planned for this day yet."
+                                 : "Tap a lift each time you finish a set.")
+                                .font(.caption)
+                                .foregroundStyle(RestFitTheme.muted)
+
+                            if lifts.isEmpty {
+                                Text("Add lifts on the plan screen after you finish this session.")
+                                    .font(.caption)
+                                    .foregroundStyle(RestFitTheme.faint)
+                            } else {
+                                VStack(spacing: 10) {
+                                    ForEach(lifts) { exercise in
+                                        sessionLiftRow(exercise)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Session in progress")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(RestFitTheme.muted)
+                            Text(plan.isCardioDay
+                                 ? "Keep moving — run, bike, walk, or whatever you planned for cardio day."
+                                 : "Stay with your session until you're ready to finish.")
+                                .font(.caption)
+                                .foregroundStyle(RestFitTheme.faint)
+                        }
+                    }
+                }
+                .opacity(sessionDetailsVisible ? 1.0 : 0.0)
+                .offset(y: sessionDetailsVisible ? 0.0 : 10.0)
 
                 HStack(spacing: 12) {
                     Button {
-                        store.cancelWorkout()
+                        cancelWorkoutAnimated()
                     } label: {
                         Text("Cancel")
                             .font(.body.weight(.semibold))
@@ -416,7 +665,7 @@ struct StrengthPlanView: View {
                     .buttonStyle(.plain)
 
                     Button {
-                        store.finishWorkout()
+                        finishWorkoutAnimated()
                     } label: {
                         Text("Finish")
                             .font(.body.weight(.semibold))
@@ -435,12 +684,15 @@ struct StrengthPlanView: View {
     private var workoutActivityChartsCard: some View {
         let points = store.workoutWeekChartPoints
         let labels = points.map(\.label)
+        let cardioTotal = points.reduce(0) { $0 + $1.cardioMinutes }
+        let workoutTotal = points.reduce(0) { $0 + $1.workoutMinutes }
+        let restTotal = points.filter(\.isRestDay).count
         let hasData = points.contains { point in
             point.cardioMinutes > 0 || point.workoutMinutes > 0 || point.dayType != .none
         }
 
         return SurfaceCard {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Weekly activity")
                         .font(.body.weight(.semibold))
@@ -456,80 +708,134 @@ struct StrengthPlanView: View {
                         .foregroundStyle(RestFitTheme.muted)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("What you did each day")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(RestFitTheme.muted)
-                    DailyTypeStripChart(points: points)
-                        .frame(height: 88)
-                    chartLegend
+                HStack(spacing: 8) {
+                    activityStatPill(value: "\(cardioTotal)", unit: "min", title: "Cardio", color: RestFitTheme.coral)
+                    activityStatPill(value: "\(workoutTotal)", unit: "min", title: "Workouts", color: RestFitTheme.mint)
+                    activityStatPill(value: "\(restTotal)", unit: restTotal == 1 ? "day" : "days", title: "Rest", color: RestFitTheme.faint)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Cardio")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(RestFitTheme.muted)
-                        Spacer()
-                        Text("\(points.reduce(0) { $0 + $1.cardioMinutes }) min total")
-                            .font(.caption2)
-                            .foregroundStyle(RestFitTheme.faint)
-                    }
-                    BarTrendChart(
-                        values: points.map { Double($0.cardioMinutes) },
-                        labels: labels,
-                        color: RestFitTheme.coral
-                    )
-                    .frame(height: 100)
-                }
+                activityChartModeSelector
 
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Workouts")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(RestFitTheme.muted)
-                        Spacer()
-                        Text("\(points.reduce(0) { $0 + $1.workoutMinutes }) min total")
-                            .font(.caption2)
-                            .foregroundStyle(RestFitTheme.faint)
-                    }
-                    BarTrendChart(
-                        values: points.map { Double($0.workoutMinutes) },
-                        labels: labels,
-                        color: RestFitTheme.mint
-                    )
-                    .frame(height: 100)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Rest days")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(RestFitTheme.muted)
-                    BarTrendChart(
-                        values: points.map { $0.isRestDay ? 1.0 : 0.0 },
-                        labels: labels,
-                        color: RestFitTheme.faint
-                    )
-                    .frame(height: 88)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("All activity")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(RestFitTheme.muted)
-                    StackedMinutesChart(
-                        cardioValues: points.map { Double($0.cardioMinutes) },
-                        workoutValues: points.map { Double($0.workoutMinutes) },
-                        labels: labels
-                    )
-                    .frame(height: 100)
-                    HStack(spacing: 16) {
-                        chartLegendItem(color: RestFitTheme.coral, title: "Cardio min")
-                        chartLegendItem(color: RestFitTheme.mint, title: "Workout min")
+                Group {
+                    switch activityChartMode {
+                    case .overview:
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("What you did each day")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(RestFitTheme.muted)
+                            DailyTypeStripChart(points: points)
+                                .frame(height: 108)
+                            chartLegend
+                        }
+                    case .cardio:
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Cardio minutes")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(RestFitTheme.muted)
+                            BarTrendChart(
+                                values: points.map { Double($0.cardioMinutes) },
+                                labels: labels,
+                                color: RestFitTheme.coral
+                            )
+                            .frame(height: 108)
+                        }
+                    case .workouts:
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Workout minutes")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(RestFitTheme.muted)
+                            BarTrendChart(
+                                values: points.map { Double($0.workoutMinutes) },
+                                labels: labels,
+                                color: RestFitTheme.mint
+                            )
+                            .frame(height: 108)
+                        }
+                    case .combined:
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("All activity")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(RestFitTheme.muted)
+                            StackedMinutesChart(
+                                cardioValues: points.map { Double($0.cardioMinutes) },
+                                workoutValues: points.map { Double($0.workoutMinutes) },
+                                labels: labels
+                            )
+                            .frame(height: 108)
+                            HStack(spacing: 16) {
+                                chartLegendItem(color: RestFitTheme.coral, title: "Cardio")
+                                chartLegendItem(color: RestFitTheme.mint, title: "Workouts")
+                            }
+                        }
                     }
                 }
+                .animation(AppLayout.tabSwitchAnimation, value: activityChartMode)
             }
         }
+    }
+
+    private var activityChartModeSelector: some View {
+        HStack(spacing: 0) {
+            ForEach(WorkoutActivityChartMode.allCases, id: \.self) { mode in
+                activityChartModeChip(mode)
+            }
+        }
+        .padding(3)
+        .background(Color.white.opacity(0.08))
+        .overlay(
+            Capsule()
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.35), RestFitTheme.mint.opacity(0.28)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.0
+                )
+        )
+        .clipShape(Capsule())
+    }
+
+    private func activityChartModeChip(_ mode: WorkoutActivityChartMode) -> some View {
+        let selected = activityChartMode == mode
+        return Button {
+            withAnimation(AppLayout.tabSwitchAnimation) {
+                activityChartMode = mode
+            }
+        } label: {
+            Text(mode.rawValue)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(selected ? RestFitTheme.canvas : .white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(selected ? RestFitTheme.mint : Color.clear)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func activityStatPill(value: String, unit: String, title: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                Text(unit)
+                    .font(.caption2)
+                    .foregroundStyle(RestFitTheme.faint)
+            }
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(RestFitTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(RestFitTheme.line, lineWidth: 1)
+        )
     }
 
     private var chartLegend: some View {
@@ -548,27 +854,6 @@ struct StrengthPlanView: View {
             Text(title)
                 .font(.caption2)
                 .foregroundStyle(RestFitTheme.faint)
-        }
-    }
-
-    private var todayLiftsCard: some View {
-        let today = store.todayStrengthDay
-        return SurfaceCard {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Today's lifts")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
-
-                if today.exercises.isEmpty {
-                    Text("No lifts planned. Add them on this day's plan.")
-                        .font(.caption)
-                        .foregroundStyle(RestFitTheme.muted)
-                } else {
-                    ForEach(today.exercises) { exercise in
-                        sessionLiftRow(exercise)
-                    }
-                }
-            }
         }
     }
 
@@ -637,26 +922,22 @@ struct StrengthPlanView: View {
     }
 
     private func exerciseEditorRow(_ exercise: StrengthExercise) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let current = selectedPlan.exercises.first { $0.id == exercise.id } ?? exercise
+
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Button {
-                    editingExercise = exercise
-                    showComposer = true
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(exercise.name)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                        Text("\(exercise.sets)×\(exercise.reps)")
-                            .font(.caption)
-                            .foregroundStyle(RestFitTheme.muted)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(current.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text(store.liftPrescription(current))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(RestFitTheme.mint)
                 }
-                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 Button {
-                    store.deleteStrengthExercise(selectedDay, id: exercise.id)
+                    store.deleteStrengthExercise(selectedDay, id: current.id)
                 } label: {
                     Image(systemName: "trash")
                         .font(.caption)
@@ -665,33 +946,45 @@ struct StrengthPlanView: View {
                 .buttonStyle(.plain)
             }
 
+            HStack(spacing: 10) {
+                inlineLiftStepper(title: "Sets", value: current.sets) {
+                    var updated = current
+                    updated.sets = max(1, current.sets - 1)
+                    updateExercise(updated)
+                } onIncrement: {
+                    var updated = current
+                    updated.sets = min(10, current.sets + 1)
+                    updateExercise(updated)
+                }
+
+                inlineLiftStepper(title: "Reps", value: current.reps) {
+                    var updated = current
+                    updated.reps = max(1, current.reps - 1)
+                    updateExercise(updated)
+                } onIncrement: {
+                    var updated = current
+                    updated.reps = min(30, current.reps + 1)
+                    updateExercise(updated)
+                }
+            }
+
             HStack {
                 Text("Weight")
                     .font(.caption)
                     .foregroundStyle(RestFitTheme.muted)
                 Spacer()
-                Button {
-                    store.adjustStrengthWeight(selectedDay, id: exercise.id, deltaDisplay: -store.liftWeightStep)
-                } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(RestFitTheme.mint)
+                MintStepperButton(symbol: "−") {
+                    store.adjustStrengthWeight(selectedDay, id: current.id, deltaDisplay: -store.liftWeightStep)
                 }
-                .buttonStyle(.plain)
 
-                Text(store.liftWeightLabel(exercise.weightKg))
+                Text(store.liftWeightLabel(current.weightKg))
                     .font(.body.weight(.semibold))
                     .foregroundStyle(.white)
                     .frame(minWidth: 72)
 
-                Button {
-                    store.adjustStrengthWeight(selectedDay, id: exercise.id, deltaDisplay: store.liftWeightStep)
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(RestFitTheme.mint)
+                MintStepperButton(symbol: "+") {
+                    store.adjustStrengthWeight(selectedDay, id: current.id, deltaDisplay: store.liftWeightStep)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(12)
@@ -700,25 +993,35 @@ struct StrengthPlanView: View {
     }
 
     private func sessionLiftRow(_ exercise: StrengthExercise) -> some View {
-        let done = store.isStrengthExerciseDone(exercise.id)
-        return Button {
-            store.toggleStrengthExerciseDone(exercise.id)
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(done ? RestFitTheme.mint : RestFitTheme.faint)
+        let completed = store.completedSets(for: exercise.id)
+        let done = store.isStrengthExerciseDone(exercise)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(exercise.name)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(done ? RestFitTheme.muted : .white)
-                    Text(store.liftPrescription(exercise))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(RestFitTheme.mint)
+        return Button {
+            store.tapStrengthSet(for: exercise)
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(done ? RestFitTheme.mint : RestFitTheme.faint)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(exercise.name)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(done ? RestFitTheme.muted : .white)
+                        Text("\(exercise.reps) reps @ \(store.liftWeightLabel(exercise.weightKg))")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(RestFitTheme.mint)
+                    }
+
+                    Spacer()
+
+                    Text("\(completed)/\(exercise.sets)")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(completed > 0 ? RestFitTheme.mint : RestFitTheme.faint)
                 }
 
-                Spacer()
+                setProgressDots(completed: completed, total: exercise.sets)
             }
             .padding(12)
             .background(RestFitTheme.card)
@@ -726,109 +1029,15 @@ struct StrengthPlanView: View {
         }
         .buttonStyle(.plain)
     }
-}
 
-struct StrengthExerciseSheet: View {
-    @Environment(WellnessStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
-    let weekday: Weekday
-    var exercise: StrengthExercise?
-    @State private var name = "New lift"
-    @State private var sets = 3
-    @State private var reps = 8
-    @State private var weightText = "45"
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                TextField("Lift name", text: $name)
-                HStack {
-                    Text("Sets")
-                    Spacer()
-                    Button {
-                        sets = max(1, sets - 1)
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .foregroundStyle(RestFitTheme.mint)
-                    }
-                    .buttonStyle(.plain)
-                    Text("\(sets)")
-                        .frame(minWidth: 28)
-                    Button {
-                        sets = min(10, sets + 1)
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(RestFitTheme.mint)
-                    }
-                    .buttonStyle(.plain)
-                }
-                HStack {
-                    Text("Reps")
-                    Spacer()
-                    Button {
-                        reps = max(1, reps - 1)
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .foregroundStyle(RestFitTheme.mint)
-                    }
-                    .buttonStyle(.plain)
-                    Text("\(reps)")
-                        .frame(minWidth: 28)
-                    Button {
-                        reps = min(30, reps + 1)
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(RestFitTheme.mint)
-                    }
-                    .buttonStyle(.plain)
-                }
-                TextField("Weight in \(store.weightUnitLabel)", text: $weightText)
+    private func setProgressDots(completed: Int, total: Int) -> some View {
+        HStack(spacing: 6) {
+            ForEach(Array(0..<total), id: \.self) { index in
+                Circle()
+                    .fill(index < completed ? RestFitTheme.mint : RestFitTheme.line)
+                    .frame(width: 10, height: 10)
             }
-            .navigationTitle(exercise == nil ? "Add lift" : "Edit lift")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
-                }
-            }
+            Spacer(minLength: 0)
         }
-        .onAppear {
-            if let exercise {
-                name = exercise.name
-                sets = exercise.sets
-                reps = exercise.reps
-                weightText = store.usesPounds
-                    ? String(format: "%.0f", store.displayWeight(exercise.weightKg))
-                    : String(format: "%.1f", store.displayWeight(exercise.weightKg))
-            } else {
-                weightText = store.usesPounds ? "45" : "20"
-            }
-        }
-    }
-
-    private func save() {
-        let parsed = Double(weightText) ?? (store.usesPounds ? 45.0 : 20.0)
-        let weightKg = store.kilogramsFromDisplay(max(0.0, parsed))
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if var existing = exercise {
-            existing.name = trimmed.isEmpty ? "Lift" : trimmed
-            existing.sets = sets
-            existing.reps = reps
-            existing.weightKg = weightKg
-            store.updateStrengthExercise(weekday, exercise: existing)
-        } else {
-            store.addStrengthExercise(
-                weekday,
-                exercise: StrengthExercise(
-                    name: trimmed.isEmpty ? "Lift" : trimmed,
-                    sets: sets,
-                    reps: reps,
-                    weightKg: weightKg
-                )
-            )
-        }
-        dismiss()
     }
 }
