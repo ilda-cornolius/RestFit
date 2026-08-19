@@ -60,10 +60,17 @@ struct StrengthPlanView: View {
                         weekCard
                             .padding(.horizontal, 24)
                     }
-                    dayCard
-                        .padding(.horizontal, 24)
-                    startCard
-                        .padding(.horizontal, 24)
+                    if isViewingToday && store.hasFinishedTodaySession {
+                        editTodaySessionLink
+                            .padding(.horizontal, 24)
+                        finishedForDayCard
+                            .padding(.horizontal, 24)
+                    } else {
+                        dayCard
+                            .padding(.horizontal, 24)
+                        startCard
+                            .padding(.horizontal, 24)
+                    }
                     // PastFeatures: TodayWorkoutCard + dailyWorkoutHistoryCard — see PastFeatures.swift
                     recentWorkoutsCard
                         .padding(.horizontal, 24)
@@ -92,6 +99,10 @@ struct StrengthPlanView: View {
 
     private var selectedPlan: StrengthDayPlan {
         store.strengthDay(for: selectedDay)
+    }
+
+    private var isViewingToday: Bool {
+        selectedPlan.weekday == store.todayWeekday
     }
 
     private var layoutToggle: some View {
@@ -294,10 +305,16 @@ struct StrengthPlanView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                     .buttonStyle(.plain)
+                    if isViewingToday {
+                        finishForDayButton
+                    }
                 } else if day.isOffDay {
                     Text("\(day.weekday.title) is a rest day. Recover, or switch to Cardio for active recovery.")
                         .font(.caption)
                         .foregroundStyle(RestFitTheme.muted)
+                    if isViewingToday {
+                        finishForDayButton
+                    }
                 } else {
                     Text("\(day.focus) · \(day.exercises.count) lifts")
                         .font(.caption)
@@ -314,9 +331,60 @@ struct StrengthPlanView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                     .buttonStyle(.plain)
+                    if isViewingToday {
+                        finishForDayButton
+                    }
                 }
             }
         }
+    }
+
+    private var editTodaySessionLink: some View {
+        HStack {
+            Button {
+                store.reopenTodaySessionForEditing()
+            } label: {
+                Text("Edit today's workout")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.mint)
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+    }
+
+    private var finishedForDayCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Today's session")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text(store.todayFinishedSessionLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.mint)
+                Text("Come back tomorrow for your next workout!")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var finishForDayButton: some View {
+        Button {
+            store.finishTodaySession()
+        } label: {
+            Text("Finished for the day")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(RestFitTheme.line)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
     }
 
     private var sessionCard: some View {

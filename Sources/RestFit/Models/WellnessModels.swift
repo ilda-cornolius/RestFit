@@ -781,6 +781,7 @@ struct DailyWorkoutLog: Identifiable, Codable, Hashable {
     var isRestDay: Bool
     var loggedAt: Date
     var wasPassive: Bool
+    var finishedExplicitly: Bool
     var activities: [DailyWorkoutActivity]
 
     init(
@@ -790,6 +791,7 @@ struct DailyWorkoutLog: Identifiable, Codable, Hashable {
         isRestDay: Bool = true,
         loggedAt: Date = .now,
         wasPassive: Bool = false,
+        finishedExplicitly: Bool = false,
         activities: [DailyWorkoutActivity] = []
     ) {
         self.id = id
@@ -798,11 +800,12 @@ struct DailyWorkoutLog: Identifiable, Codable, Hashable {
         self.isRestDay = isRestDay
         self.loggedAt = loggedAt
         self.wasPassive = wasPassive
+        self.finishedExplicitly = finishedExplicitly
         self.activities = activities
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, day, focus, isRestDay, loggedAt, wasPassive, activities
+        case id, day, focus, isRestDay, loggedAt, wasPassive, finishedExplicitly, activities
     }
 
     init(from decoder: Decoder) throws {
@@ -813,6 +816,7 @@ struct DailyWorkoutLog: Identifiable, Codable, Hashable {
         isRestDay = try container.decodeIfPresent(Bool.self, forKey: .isRestDay) ?? true
         loggedAt = try container.decodeIfPresent(Date.self, forKey: .loggedAt) ?? .now
         wasPassive = try container.decodeIfPresent(Bool.self, forKey: .wasPassive) ?? false
+        finishedExplicitly = try container.decodeIfPresent(Bool.self, forKey: .finishedExplicitly) ?? false
         activities = try container.decodeIfPresent([DailyWorkoutActivity].self, forKey: .activities) ?? []
     }
 

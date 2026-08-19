@@ -1204,6 +1204,50 @@ import OSLog
         return []
     }
 
+    var hasFinishedTodaySession: Bool {
+        dailyWorkoutLog(for: now)?.finishedExplicitly == true
+    }
+
+    var todayFinishedSessionLabel: String {
+        dailyWorkoutLog(for: now)?.dayTypeLabel ?? todayStrengthDay.dayTypeLabel
+    }
+
+    func finishTodaySession() {
+        if let index = dailyWorkoutLogs.firstIndex(where: { Self.dayKey(for: $0.day) == todayWorkoutDayKey }) {
+            dailyWorkoutLogs[index].finishedExplicitly = true
+            dailyWorkoutLogs[index].loggedAt = now
+            todayWorkoutPick = nil
+            return
+        }
+        let plan = todayStrengthDay
+        let pick: TodayWorkoutPick
+        if let existing = todayWorkoutPick, existing.dayKey == todayWorkoutDayKey {
+            pick = existing
+        } else {
+            pick = TodayWorkoutPick(
+                dayKey: todayWorkoutDayKey,
+                focus: plan.focus,
+                isRestDay: plan.isRestDay,
+                activities: []
+            )
+        }
+        finalizeWorkoutDay(dayKey: todayWorkoutDayKey, pick: pick, passive: false, finishedExplicitly: true)
+    }
+
+    func reopenTodaySessionForEditing() {
+        guard let index = dailyWorkoutLogs.firstIndex(where: { Self.dayKey(for: $0.day) == todayWorkoutDayKey }) else {
+            return
+        }
+        let log = dailyWorkoutLogs[index]
+        dailyWorkoutLogs.remove(at: index)
+        todayWorkoutPick = TodayWorkoutPick(
+            dayKey: todayWorkoutDayKey,
+            focus: log.focus,
+            isRestDay: log.isRestDay,
+            activities: log.activities
+        )
+    }
+
     func activityDisplayLabel(_ activity: DailyWorkoutActivity) -> String {
         switch activity.kind {
         case .lift:
@@ -1416,7 +1460,12 @@ import OSLog
         }
     }
 
-    private func finalizeWorkoutDay(dayKey: String, pick: TodayWorkoutPick, passive: Bool) {
+    private func finalizeWorkoutDay(
+        dayKey: String,
+        pick: TodayWorkoutPick,
+        passive: Bool,
+        finishedExplicitly: Bool = false
+    ) {
         guard dailyWorkoutLogs.first(where: { Self.dayKey(for: $0.day) == dayKey }) == nil else { return }
         guard let dayDate = Self.date(fromDayKey: dayKey) else { return }
         dailyWorkoutLogs.append(
@@ -1426,6 +1475,7 @@ import OSLog
                 isRestDay: pick.isRestDay,
                 loggedAt: now,
                 wasPassive: passive,
+                finishedExplicitly: finishedExplicitly,
                 activities: pick.activities
             )
         )
