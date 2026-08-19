@@ -988,10 +988,13 @@ import OSLog
     var workoutWeekChartPoints: [WorkoutDayChartPoint] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
-        return (0..<7).reversed().compactMap { offset in
-            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { return nil }
-            return workoutChartPoint(for: date)
+        var points: [WorkoutDayChartPoint] = []
+        for index in 0..<7 {
+            let offset = 6 - index
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
+            points.append(workoutChartPoint(for: date))
         }
+        return points
     }
 
     private func workoutChartPoint(for date: Date) -> WorkoutDayChartPoint {
