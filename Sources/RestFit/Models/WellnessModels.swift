@@ -173,7 +173,7 @@ struct WellnessProfile: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
         targetWeightKg = try container.decodeIfPresent(Double.self, forKey: .targetWeightKg) ?? 65.0
-        fastingProtocol = try container.decodeIfPresent(FastingProtocol.self, forKey: .fastingProtocol) ?? .sixteenEight
+        fastingProtocol = try container.decodeIfPresent(FastingProtocol.self, forKey: .fastingProtocol) ?? FastingProtocol.sixteenEight
         fastingStreakDays = try container.decodeIfPresent(Int.self, forKey: .fastingStreakDays) ?? 0
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
         remindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .remindersEnabled) ?? true

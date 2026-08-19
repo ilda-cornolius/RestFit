@@ -1235,7 +1235,7 @@ import OSLog
         if !planned.isEmpty {
             let lower = planned.lowercased()
             if lower != "rest", lower != "cardio", lower != "workout",
-               !names.contains(where: { $0.caseInsensitiveCompare(planned) == ComparisonResult.orderedSame }) {
+               !names.contains(where: { $0.lowercased() == planned.lowercased() }) {
                 names.append(planned)
             }
         }
@@ -1244,7 +1244,7 @@ import OSLog
             guard !focus.isEmpty else { continue }
             let lower = focus.lowercased()
             if lower == "rest" || lower == "cardio" || lower == "workout" { continue }
-            if !names.contains(where: { $0.caseInsensitiveCompare(focus) == ComparisonResult.orderedSame }) {
+            if !names.contains(where: { $0.lowercased() == focus.lowercased() }) {
                 names.append(focus)
             }
         }
@@ -1316,7 +1316,7 @@ import OSLog
         if dailyWorkoutLog(for: now) == nil {
             ensureTodayWorkoutPick()
         }
-        appendTodayActivity(.lift(name: trimmed, sets: max(1, sets), reps: max(1, reps), weightKg: max(0, weightKg)))
+        appendTodayActivity(.lift(name: trimmed, sets: max(1, sets), reps: max(1, reps), weightKg: max(0.0, weightKg)))
         if var pick = todayWorkoutPick, pick.dayKey == todayWorkoutDayKey, pick.isOffDay {
             pick.focus = trimmed
             pick.isRestDay = false

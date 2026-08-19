@@ -103,7 +103,7 @@ struct TodayWorkoutCard: View {
                 Text("Walk min")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(RestFitTheme.faint)
-                intStepper(value: $walkMinutes, range: 5...180, step: 5)
+                intStepper(value: $walkMinutes, lowerBound: 5, upperBound: 180, step: 5)
             }
 
             if showLiftForm {
@@ -153,8 +153,8 @@ struct TodayWorkoutCard: View {
                 minHeight: 48.0
             )
             HStack(spacing: 12) {
-                stepperField("Sets", value: $liftSets, range: 1...10)
-                stepperField("Reps", value: $liftReps, range: 1...30)
+                stepperField("Sets", value: $liftSets, lowerBound: 1, upperBound: 10)
+                stepperField("Reps", value: $liftReps, lowerBound: 1, upperBound: 30)
             }
             AeroTextField(
                 title: "Weight (\(store.weightUnitLabel))",
@@ -190,20 +190,20 @@ struct TodayWorkoutCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func stepperField(_ title: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
+    private func stepperField(_ title: String, value: Binding<Int>, lowerBound: Int, upperBound: Int) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(RestFitTheme.faint)
-            intStepper(value: value, range: range, step: 1)
+            intStepper(value: value, lowerBound: lowerBound, upperBound: upperBound, step: 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func intStepper(value: Binding<Int>, range: ClosedRange<Int>, step: Int) -> some View {
+    private func intStepper(value: Binding<Int>, lowerBound: Int, upperBound: Int, step: Int) -> some View {
         HStack(spacing: 8) {
             Button {
-                value.wrappedValue = max(range.lowerBound, value.wrappedValue - step)
+                decrementStepper(value: value, step: step, lowerBound: lowerBound)
             } label: {
                 Image(systemName: "minus.circle.fill")
                     .foregroundStyle(RestFitTheme.mint)
@@ -214,13 +214,23 @@ struct TodayWorkoutCard: View {
                 .foregroundStyle(.white)
                 .frame(minWidth: 28)
             Button {
-                value.wrappedValue = min(range.upperBound, value.wrappedValue + step)
+                incrementStepper(value: value, step: step, upperBound: upperBound)
             } label: {
                 Image(systemName: "plus.circle.fill")
                     .foregroundStyle(RestFitTheme.mint)
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private func decrementStepper(value: Binding<Int>, step: Int, lowerBound: Int) {
+        let next = value.wrappedValue - step
+        value.wrappedValue = next < lowerBound ? lowerBound : next
+    }
+
+    private func incrementStepper(value: Binding<Int>, step: Int, upperBound: Int) {
+        let next = value.wrappedValue + step
+        value.wrappedValue = next > upperBound ? upperBound : next
     }
 
     private func activityRow(_ activity: DailyWorkoutActivity) -> some View {
@@ -321,7 +331,7 @@ struct TodayWorkoutCard: View {
 
     private func isSelected(_ focus: String) -> Bool {
         guard store.hasPickedTodayWorkout || store.hasLoggedTodayWorkout else { return false }
-        return store.activeTodayLabel.caseInsensitiveCompare(focus) == ComparisonResult.orderedSame
+        return store.activeTodayLabel.lowercased() == focus.lowercased()
             || (focus.lowercased() == "rest" && store.activeTodayLabel == "Rest")
             || (focus.lowercased() == "cardio" && store.activeTodayLabel == "Cardio")
     }
