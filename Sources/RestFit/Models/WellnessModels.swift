@@ -593,7 +593,7 @@ struct StrengthExercise: Identifiable, Codable, Hashable {
     var warmUpProgression: [(weightKg: Double, reps: Int)] {
         guard includeWarmUp else { return [] }
         return [
-            (0,              10),
+            (0.0,             10),
             (weightKg * 0.50, 5),
             (weightKg * 0.75, 3),
         ]

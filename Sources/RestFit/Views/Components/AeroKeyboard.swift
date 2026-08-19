@@ -497,8 +497,7 @@ private struct AeroKeyboardPanel: View {
             .background(keyBackground(primary: primary, glowing: glowing))
             .overlay(keyGlowOverlay(glowing: glowing))
             .clipShape(RoundedRectangle(cornerRadius: 10.0, style: .continuous))
-            .scaleEffect(glowing ? 1.05 : 1.0)
-            .animation(.spring(response: 0.22, dampingFraction: 0.62), value: glowing)
+            .scaleEffect(glowing ? 1.04 : 1.0)
     }
 
     private func keyBackground(primary: Bool, glowing: Bool) -> some View {
@@ -537,16 +536,20 @@ private struct AeroKeyboardPanel: View {
                 glowing ? RestFitTheme.mint.opacity(0.95) : Color.white.opacity(0.22),
                 lineWidth: glowing ? 2.0 : 1.0
             )
-            .shadow(color: glowing ? RestFitTheme.mint.opacity(0.75) : .clear, radius: glowing ? 14.0 : 0.0)
-            .shadow(color: glowing ? Color.white.opacity(0.35) : .clear, radius: glowing ? 6.0 : 0.0)
+            .shadow(color: glowing ? RestFitTheme.mint.opacity(0.85) : .clear, radius: glowing ? 12.0 : 0.0)
+            .shadow(color: glowing ? Color.white.opacity(0.45) : .clear, radius: glowing ? 4.0 : 0.0)
     }
 
     private func flashKey(_ id: String) {
-        glowingKey = id
+        withAnimation(.easeOut(duration: 0.09)) {
+            glowingKey = id
+        }
         Task {
-            try? await Task.sleep(for: .milliseconds(340))
+            try? await Task.sleep(for: .milliseconds(100))
             if glowingKey == id {
-                glowingKey = nil
+                withAnimation(.easeIn(duration: 0.11)) {
+                    glowingKey = nil
+                }
             }
         }
     }
