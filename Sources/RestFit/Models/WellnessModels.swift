@@ -131,6 +131,8 @@ struct WellnessProfile: Codable {
     var remindersEnabled: Bool
     var weightUnit: WeightUnit?
     var backgroundAnimationEnabled: Bool
+    /// When the user first started using the app (set at onboarding).
+    var firstAppUseAt: Date?
 
     static let `default` = WellnessProfile(
         name: "",
@@ -140,13 +142,14 @@ struct WellnessProfile: Codable {
         hasCompletedOnboarding: false,
         remindersEnabled: true,
         weightUnit: .pounds,
-        backgroundAnimationEnabled: true
+        backgroundAnimationEnabled: true,
+        firstAppUseAt: nil
     )
 
     enum CodingKeys: String, CodingKey {
         case name, targetWeightKg, fastingProtocol, fastingStreakDays
         case hasCompletedOnboarding, remindersEnabled, weightUnit
-        case backgroundAnimationEnabled
+        case backgroundAnimationEnabled, firstAppUseAt
     }
 
     init(
@@ -157,7 +160,8 @@ struct WellnessProfile: Codable {
         hasCompletedOnboarding: Bool,
         remindersEnabled: Bool,
         weightUnit: WeightUnit?,
-        backgroundAnimationEnabled: Bool = true
+        backgroundAnimationEnabled: Bool = true,
+        firstAppUseAt: Date? = nil
     ) {
         self.name = name
         self.targetWeightKg = targetWeightKg
@@ -167,6 +171,7 @@ struct WellnessProfile: Codable {
         self.remindersEnabled = remindersEnabled
         self.weightUnit = weightUnit
         self.backgroundAnimationEnabled = backgroundAnimationEnabled
+        self.firstAppUseAt = firstAppUseAt
     }
 
     init(from decoder: Decoder) throws {
@@ -179,6 +184,7 @@ struct WellnessProfile: Codable {
         remindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .remindersEnabled) ?? true
         weightUnit = try container.decodeIfPresent(WeightUnit.self, forKey: .weightUnit)
         backgroundAnimationEnabled = try container.decodeIfPresent(Bool.self, forKey: .backgroundAnimationEnabled) ?? true
+        firstAppUseAt = try container.decodeIfPresent(Date.self, forKey: .firstAppUseAt)
     }
 }
 

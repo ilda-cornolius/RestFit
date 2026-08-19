@@ -157,6 +157,10 @@ import OSLog
 
         normalizeTodayWorkoutPick()
 
+        if profile.hasCompletedOnboarding, profile.firstAppUseAt == nil {
+            profile.firstAppUseAt = .now
+        }
+
         // Never seed demo charts/fasts for real users. Debug builds can opt in below.
         #if DEBUG
         if ProcessInfo.processInfo.environment["RESTFIT_SEED_DEMO"] == "1",
@@ -643,6 +647,7 @@ import OSLog
         profile.fastingProtocol = fastingProtocol
         profile.remindersEnabled = remindersEnabled
         profile.hasCompletedOnboarding = true
+        profile.firstAppUseAt = .now
         save()
     }
 
@@ -1418,15 +1423,30 @@ import OSLog
     }
 
     var daysSinceLastWeightLog: Int {
-        guard let latest = weightEntries.max(by: { $0.date < $1.date })?.date else { return 99 }
+        guard let latest = weightEntries.max(by: { $0.date < $1.date })?.date else {
+            return daysSinceFirstAppUse
+        }
         let start = Calendar.current.startOfDay(for: latest)
         let today = Calendar.current.startOfDay(for: now)
-        return Calendar.current.dateComponents([.day], from: start, to: today).day ?? 99
+        return Calendar.current.dateComponents([.day], from: start, to: today).day ?? 0
+    }
+
+    var daysSinceFirstAppUse: Int {
+        guard let firstUse = profile.firstAppUseAt else { return 0 }
+        let start = Calendar.current.startOfDay(for: firstUse)
+        let today = Calendar.current.startOfDay(for: now)
+        return Calendar.current.dateComponents([.day], from: start, to: today).day ?? 0
+    }
+
+    private var isWeightCheckInDue: Bool {
+        guard daysSinceFirstAppUse >= 7 else { return false }
+        if weightEntries.isEmpty { return true }
+        return daysSinceLastWeightLog >= 7
     }
 
     var shouldShowWeightCheckIn: Bool {
         guard hasCompletedOnboarding else { return false }
-        guard daysSinceLastWeightLog >= 3 else { return false }
+        guard isWeightCheckInDue else { return false }
         let promptDays: Set<Weekday> = [.monday, .wednesday, .friday, .sunday]
         guard promptDays.contains(todayWeekday) else { return false }
         return !dismissedWeightPromptDayKeys.contains(todayWorkoutDayKey)

@@ -441,6 +441,7 @@ struct WeightCheckInSheet: View {
             }
             .padding(20)
             .padding(.bottom, keyboard.isPresented ? 300.0 : 0.0)
+            .animation(AppLayout.keyboardAnimation, value: keyboard.isPresented)
             .background(RestFitTheme.canvas)
             .navigationTitle("Weekly check-in")
             .toolbar {

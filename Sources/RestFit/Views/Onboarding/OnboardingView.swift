@@ -184,6 +184,7 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 24)
             .padding(.bottom, keyboard.isPresented ? 340.0 : 24.0)
+            .animation(AppLayout.keyboardAnimation, value: keyboard.isPresented)
         }
     }
 

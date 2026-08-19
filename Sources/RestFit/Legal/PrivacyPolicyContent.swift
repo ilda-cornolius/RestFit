@@ -13,6 +13,9 @@ enum RestFitLegal {
     /// Public data deletion instructions (without deleting the account).
     static let deleteDataURL = "https://ilda-cornolius.github.io/RestFit/delete-data/"
 
+    /// Closed beta signup instructions (Google Group → Play testing link).
+    static let closedBetaURL = "https://ilda-cornolius.github.io/RestFit/beta/"
+
     static let appVersionLabel = "1.0.0"
 
     static let shortDisclaimer =

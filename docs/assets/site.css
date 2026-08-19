@@ -498,3 +498,131 @@ img {
     transition: none !important;
   }
 }
+
+/* Closed beta signup */
+.beta-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.beta-step {
+  padding: 1.25rem 1.35rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(16, 18, 42, 0.72);
+}
+
+.beta-step.is-locked {
+  opacity: 0.55;
+}
+
+.beta-step.is-unlocked {
+  border-color: rgba(46, 229, 157, 0.35);
+  box-shadow: 0 0 0 1px rgba(46, 229, 157, 0.08);
+}
+
+.beta-step__label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: var(--mint-dim);
+  color: var(--mint);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.beta-step h2 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  color: var(--text);
+}
+
+.beta-step p {
+  margin: 0 0 14px;
+}
+
+.beta-step .btn {
+  margin-top: 4px;
+}
+
+.beta-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.beta-check input {
+  margin-top: 4px;
+  accent-color: var(--mint);
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.beta-email {
+  margin-top: 28px;
+  padding: 1.35rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(16, 18, 42, 0.72);
+}
+
+.beta-email h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.beta-email p {
+  margin: 0 0 14px;
+}
+
+.beta-email__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.beta-email__row input {
+  flex: 1 1 220px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(5, 6, 15, 0.65);
+  color: var(--text);
+  font: inherit;
+}
+
+.beta-email__row input:focus {
+  outline: 2px solid rgba(46, 229, 157, 0.45);
+  outline-offset: 1px;
+}
+
+.beta-note {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  color: var(--faint);
+}
+
+.beta-copy-msg {
+  margin-top: 10px;
+  color: var(--mint);
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-height: 1.2em;
+}

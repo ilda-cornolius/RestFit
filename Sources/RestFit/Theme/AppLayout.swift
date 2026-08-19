@@ -32,4 +32,10 @@ enum AppLayout {
     static let tabSwitchAnimation: Animation = .easeInOut(duration: 0.28)
 
     static let workoutSessionAnimation: Animation = .easeInOut(duration: 0.34)
+
+    static var keyboardTransition: AnyTransition {
+        AnyTransition.opacity
+    }
+
+    static let keyboardAnimation: Animation = .easeInOut(duration: 0.34)
 }

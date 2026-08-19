@@ -843,6 +843,7 @@ struct ProfileView: View {
                 .padding(.horizontal, 24)
             }
             .padding(.bottom, keyboard.isPresented ? 360.0 : AppLayout.scrollTailPadding)
+            .animation(AppLayout.keyboardAnimation, value: keyboard.isPresented)
             }
 
             if showProfileSaved {
@@ -971,6 +972,7 @@ struct AddWeightSheet: View {
             }
             .padding(20)
             .padding(.bottom, keyboard.isPresented ? 300.0 : 0.0)
+            .animation(AppLayout.keyboardAnimation, value: keyboard.isPresented)
             .navigationTitle("Add Weight")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

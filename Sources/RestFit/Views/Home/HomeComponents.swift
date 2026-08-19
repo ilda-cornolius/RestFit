@@ -86,17 +86,17 @@ struct WelcomeSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16.0) {
             HStack(alignment: .center, spacing: 10.0) {
-                Text(greeting)
-                    .font(RestFitTheme.manrope(size: 17.0, bold: false))
-                    .foregroundStyle(Color.white.opacity(0.48))
-                    .tracking(1.2)
-                    .fixedSize(horizontal: false, vertical: true)
-
                 Image("app_mark", bundle: .module)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 28.0, height: 28.0)
                     .clipShape(RoundedRectangle(cornerRadius: 8.0, style: .continuous))
+
+                Text(greeting)
+                    .font(RestFitTheme.manrope(size: 17.0, bold: false))
+                    .foregroundStyle(Color.white.opacity(0.48))
+                    .tracking(1.2)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Spacer(minLength: 0)
             }

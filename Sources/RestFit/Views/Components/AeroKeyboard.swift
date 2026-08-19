@@ -18,6 +18,7 @@ enum AeroKeyboardMode: Equatable {
     var mode: AeroKeyboardMode = .text
     var placeholder: String = ""
     var activeFieldTitle: String = ""
+    var cursorIndex: Int = 0
 
     /// Called on every keystroke so the bound field stays live.
     var onChange: ((String) -> Void)?
@@ -44,6 +45,7 @@ enum AeroKeyboardMode: Equatable {
         self.onChange = onChange
         self.onDone = onDone
         self.activeFieldTitle = title
+        self.cursorIndex = text.count
 
         if isPresented && !switchingField {
             return
@@ -51,7 +53,7 @@ enum AeroKeyboardMode: Equatable {
 
         if !isPresented {
             openedAt = Date()
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            withAnimation(AppLayout.keyboardAnimation) {
                 isPresented = true
             }
         }
@@ -64,28 +66,42 @@ enum AeroKeyboardMode: Equatable {
            Date().timeIntervalSince(openedAt) < minimumVisibleSeconds {
             return
         }
-        withAnimation(.spring(response: 0.36, dampingFraction: 0.9)) {
+        withAnimation(AppLayout.keyboardAnimation) {
             isPresented = false
         }
         onChange = nil
         onDone = nil
         activeFieldTitle = ""
+        cursorIndex = 0
         openedAt = nil
     }
 
+    func moveCursor(to index: Int) {
+        cursorIndex = min(max(0, index), draft.count)
+    }
+
     func insert(_ chunk: String) {
-        draft += chunk
+        let index = min(max(0, cursorIndex), draft.count)
+        let before = draft.prefix(index)
+        let after = draft.dropFirst(index)
+        draft = String(before) + chunk + String(after)
+        cursorIndex = index + chunk.count
         onChange?(draft)
     }
 
     func deleteBackward() {
-        guard !draft.isEmpty else { return }
-        draft = String(draft.dropLast())
+        guard cursorIndex > 0, !draft.isEmpty else { return }
+        let index = cursorIndex - 1
+        let before = draft.prefix(index)
+        let after = draft.dropFirst(index + 1)
+        draft = String(before) + String(after)
+        cursorIndex = index
         onChange?(draft)
     }
 
     func clear() {
         draft = ""
+        cursorIndex = 0
         onChange?(draft)
     }
 
@@ -143,15 +159,21 @@ struct AeroTextField: View {
                 .padding(.horizontal, 18.0)
                 .padding(.vertical, 16.0)
                 .frame(minHeight: minHeight)
-                .background(aeroFill)
+                .background {
+                    if isActive {
+                        Color.clear
+                    } else {
+                        aeroFill
+                    }
+                }
                 .clipShape(RoundedRectangle(cornerRadius: 16.0, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16.0, style: .continuous)
                         .stroke(isActive ? activeStroke : aeroStroke, lineWidth: isActive ? 1.8 : 1.2)
                 )
                 .shadow(
-                    color: RestFitTheme.mint.opacity(isActive ? 0.28 : 0.12),
-                    radius: isActive ? 16.0 : 12.0,
+                    color: RestFitTheme.mint.opacity(isActive ? 0.0 : 0.12),
+                    radius: isActive ? 0.0 : 12.0,
                     x: 0.0,
                     y: 4.0
                 )
@@ -216,22 +238,17 @@ struct AeroKeyboardOverlay: View {
             let bottomInset = max(10.0, geo.safeAreaInsets.bottom)
             ZStack(alignment: .bottom) {
                 if keyboard.isPresented {
-                    Color.black.opacity(0.48)
-                        .ignoresSafeArea()
-                        .transition(.opacity)
-                        .allowsHitTesting(false)
-
                     AeroKeyboardPanel(compact: compact)
                         .padding(.horizontal, compact ? 6.0 : 10.0)
                         .padding(.bottom, bottomInset + 6.0)
                         .frame(maxWidth: min(geo.size.width, 680.0))
                         .frame(maxWidth: .infinity)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(AppLayout.keyboardTransition)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
-        .animation(.spring(response: 0.42, dampingFraction: 0.86), value: keyboard.isPresented)
+        .animation(AppLayout.keyboardAnimation, value: keyboard.isPresented)
     }
 }
 
@@ -241,7 +258,7 @@ private struct AeroKeyboardPanel: View {
     private var keyboard: AeroKeyboardController { AeroKeyboardController.shared }
     let compact: Bool
 
-    @State private var shifted = true
+    @State private var shifted = false
     @State private var showingSymbols = false
     @State private var glowingKey: String? = nil
 
@@ -262,20 +279,10 @@ private struct AeroKeyboardPanel: View {
                         .font(.system(size: compact ? 10.0 : 11.0, weight: .bold))
                         .tracking(1.1)
                         .foregroundStyle(RestFitTheme.mint)
-                    Text(previewText)
-                        .font(RestFitTheme.manrope(size: compact ? 19.0 : 22.0, bold: true))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.7)
+                    AeroKeyboardDraftPreview(compact: compact)
                 }
                 Spacer(minLength: 8.0)
-                Button("Done") { keyboard.finish() }
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(RestFitTheme.canvas)
-                    .padding(.horizontal, 14.0)
-                    .padding(.vertical, 8.0)
-                    .background(RestFitTheme.mint)
-                    .clipShape(Capsule())
+                doneButton
             }
             .padding(.horizontal, 8.0)
 
@@ -308,16 +315,33 @@ private struct AeroKeyboardPanel: View {
                 )
         )
         .shadow(color: RestFitTheme.mint.opacity(0.22), radius: 28.0, x: 0.0, y: -4.0)
+        .onChange(of: keyboard.activeFieldTitle) { _, _ in
+            shifted = false
+            showingSymbols = false
+        }
     }
 
-    private var previewText: String {
-        if keyboard.draft.isEmpty {
-            return keyboard.placeholder
+    private var doneButton: some View {
+        Button {
+            finishFromDoneButton()
+        } label: {
+            Text("Done")
+                .font(.body.weight(.bold))
+                .foregroundStyle(RestFitTheme.canvas)
+                .padding(.horizontal, 22.0)
+                .padding(.vertical, 12.0)
+                .background(
+                    Capsule()
+                        .fill(RestFitTheme.mint)
+                        .shadow(color: RestFitTheme.mint.opacity(0.25), radius: 6.0)
+                )
         }
-        if keyboard.mode == .secure {
-            return String(repeating: "•", count: min(keyboard.draft.count, 28))
-        }
-        return keyboard.draft
+        .buttonStyle(.plain)
+    }
+
+    private func finishFromDoneButton() {
+        AeroHaptics.lightTap()
+        keyboard.finish()
     }
 
     private var panelBackground: some View {
@@ -351,7 +375,7 @@ private struct AeroKeyboardPanel: View {
             keyRow(["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"])
             keyRow(["A", "S", "D", "F", "G", "H", "J", "K", "L"])
             HStack(spacing: 6.0) {
-                actionKey(id: "action-shift", label: shifted ? "⇧" : "⇧", wide: true) {
+                actionKey(id: "action-shift", label: "⇧", extraWide: compact ? 72.0 : 80.0, primary: shifted) {
                     shifted.toggle()
                     flashKey("action-shift")
                 }
@@ -413,22 +437,32 @@ private struct AeroKeyboardPanel: View {
             keyRow(["7", "8", "9"])
             HStack(spacing: 6.0) {
                 if keyboard.mode == .decimal {
-                    letterKey(".")
+                    numberKey(".")
                 } else {
-                    actionKey(id: "action-clear", label: "C", wide: true) {
+                    numberKey("C", id: "action-clear") {
                         keyboard.clear()
                         flashKey("action-clear")
                     }
                 }
-                letterKey("0")
-                actionKey(id: "action-delete", label: "⌫", wide: true) {
+                numberKey("0")
+                numberKey("⌫", id: "action-delete") {
                     keyboard.deleteBackward()
                     flashKey("action-delete")
                 }
             }
-            actionKey(id: "action-done", label: "Done", flex: true, primary: true) {
-                keyboard.finish()
+            actionKey(id: "action-done", label: "Done", flex: true, primary: true, tall: true) {
+                finishFromDoneButton()
             }
+        }
+    }
+
+    @ViewBuilder
+    private func numberKey(_ label: String, id: String? = nil, action: (() -> Void)? = nil) -> some View {
+        if let action, let id {
+            actionKey(id: id, label: label, flex: true, action: action)
+        } else {
+            letterKey(label)
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -474,26 +508,30 @@ private struct AeroKeyboardPanel: View {
         id: String,
         label: String,
         wide: Bool = false,
+        extraWide: CGFloat? = nil,
         flex: Bool = false,
         primary: Bool = false,
+        tall: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         let glowing = glowingKey == id
+        let keyWidth: CGFloat? = extraWide ?? (wide ? 56.0 : nil)
         return Button(action: action) {
-            keyFace(label: label, glowing: glowing, primary: primary || label == "Done")
-                .frame(maxWidth: flex ? .infinity : (wide ? 56.0 : .infinity))
+            keyFace(label: label, glowing: glowing, primary: primary || label == "Done", tall: tall)
+                .frame(maxWidth: flex ? .infinity : keyWidth)
         }
         .buttonStyle(.plain)
         .frame(maxWidth: flex ? .infinity : nil)
     }
 
-    private func keyFace(label: String, glowing: Bool, primary: Bool) -> some View {
+    private func keyFace(label: String, glowing: Bool, primary: Bool, tall: Bool = false) -> some View {
         let fontSize = label.count > 2 ? (compact ? 12.0 : 13.0) : keyFontSize
+        let height = tall ? keyHeight + 6.0 : keyHeight
         return Text(label)
-            .font(.system(size: fontSize, weight: .bold))
+            .font(.system(size: tall ? fontSize + 1.0 : fontSize, weight: .bold))
             .foregroundStyle(primary ? RestFitTheme.canvas : .white)
             .frame(maxWidth: .infinity)
-            .frame(height: keyHeight)
+            .frame(height: height)
             .background(keyBackground(primary: primary, glowing: glowing))
             .overlay(keyGlowOverlay(glowing: glowing))
             .clipShape(RoundedRectangle(cornerRadius: 10.0, style: .continuous))
@@ -561,10 +599,123 @@ private struct AeroKeyboardPanel: View {
     }
 }
 
+private struct AeroKeyboardDraftPreview: View {
+    private var keyboard: AeroKeyboardController { AeroKeyboardController.shared }
+    let compact: Bool
+
+    @State private var cursorVisible = true
+
+    private var previewFontSize: CGFloat { compact ? 19.0 : 22.0 }
+    private var characterCount: Int { keyboard.draft.count }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 0) {
+                if keyboard.draft.isEmpty {
+                    cursorReticle
+                    Button {
+                        keyboard.moveCursor(to: 0)
+                    } label: {
+                        Text(keyboard.placeholder)
+                            .font(RestFitTheme.manrope(size: previewFontSize, bold: true))
+                            .foregroundStyle(RestFitTheme.faint)
+                            .lineLimit(1)
+                            .background(Color.clear)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    ForEach(0..<characterCount, id: \.self) { index in
+                        if keyboard.cursorIndex == index {
+                            cursorReticle
+                        }
+                        characterButton(at: index)
+                    }
+                    if keyboard.cursorIndex == characterCount {
+                        cursorReticle
+                    }
+                    Button {
+                        keyboard.moveCursor(to: characterCount)
+                    } label: {
+                        Color.clear
+                            .frame(width: 16.0, height: previewFontSize * 1.1)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.clear)
+        }
+        .background(Color.clear)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .task(id: keyboard.activeFieldTitle) {
+            cursorVisible = true
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(520))
+                cursorVisible.toggle()
+            }
+        }
+    }
+
+    private var cursorReticle: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 1.0, style: .continuous)
+                .fill(RestFitTheme.mint.opacity(cursorVisible ? 0.95 : 0.25))
+                .frame(width: 2.0, height: previewFontSize * 1.05)
+                .shadow(color: RestFitTheme.mint.opacity(cursorVisible ? 0.75 : 0.0), radius: 5.0)
+
+            Circle()
+                .stroke(RestFitTheme.mint.opacity(cursorVisible ? 0.55 : 0.0), lineWidth: 1.0)
+                .frame(width: 10.0, height: 10.0)
+                .offset(y: -(previewFontSize * 0.62))
+        }
+        .padding(.horizontal, 1.0)
+        .animation(.easeInOut(duration: 0.12), value: cursorVisible)
+    }
+
+    private func characterButton(at index: Int) -> some View {
+        let glyph = displayCharacter(at: index)
+        let atCursor = keyboard.cursorIndex == index
+        return Button {
+            keyboard.moveCursor(to: index)
+        } label: {
+            Text(glyph)
+                .font(RestFitTheme.manrope(size: previewFontSize, bold: true))
+                .foregroundStyle(atCursor ? RestFitTheme.mint : .white)
+                .padding(.horizontal, 2.0)
+                .padding(.vertical, 1.0)
+                .background(Color.clear)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func displayCharacter(at index: Int) -> String {
+        guard index >= 0, index < keyboard.draft.count else { return "" }
+        if keyboard.mode == .secure {
+            return "•"
+        }
+        return String(keyboard.draft.dropFirst(index).prefix(1))
+    }
+}
+
 /// Reserve space above the custom keyboard overlay on small / tall layouts.
 enum AeroKeyboardLayout {
     static func contentInset(compact: Bool, keyboardVisible: Bool) -> CGFloat {
         guard keyboardVisible else { return 0.0 }
         return compact ? 300.0 : 340.0
+    }
+}
+
+enum AeroHaptics {
+    static func lightTap() {
+        #if SKIP
+        guard let context = UIApplication.shared.androidActivity else { return }
+        let service = context.getSystemService(android.content.Context.VIBRATOR_SERVICE)
+        guard let vibrator = service as? android.os.Vibrator else { return }
+        if android.os.Build.VERSION.SDK_INT >= 26 {
+            vibrator.vibrate(
+                android.os.VibrationEffect.createOneShot(14, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
+            )
+        }
+        #endif
     }
 }

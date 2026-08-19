@@ -79,6 +79,7 @@ struct StrengthPlanView: View {
                 .animation(AppLayout.workoutSessionAnimation, value: store.isWorkingOut)
             }
             .padding(.bottom, keyboard.isPresented ? 360.0 : AppLayout.scrollTailPadding)
+            .animation(AppLayout.keyboardAnimation, value: keyboard.isPresented)
         }
         .onAppear {
             selectedDay = store.todayWeekday
