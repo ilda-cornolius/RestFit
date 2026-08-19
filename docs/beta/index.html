@@ -32,7 +32,11 @@
     <p class="meta">Two quick steps — join the tester group, then install from Google Play.</p>
 
     <div class="callout">
-      Stella Fit is in <strong>closed testing</strong>. You need to join the Google Group first so Google Play recognizes you as a tester.
+      Stella Fit is in <strong>closed testing</strong>. Join the tester Google Group with the same account you use on your Android phone, then install from the Play testing link.
+    </div>
+
+    <div class="disclaimer" id="group-help" hidden>
+      <strong>Group link not working?</strong> Ask the developer to add your Gmail in Play Console, or make sure you’re signed into Google with the account they invited. The group is <code>stella-fit@googlegroups.com</code>.
     </div>
 
     <ol class="beta-steps">
@@ -41,11 +45,13 @@
         <h2>Join the Google Group</h2>
         <p>
           Tap below and request to join (or accept the invite). Use the same Google account
-          you’ll use on your Android phone for the Play Store.
+          you’ll use on your Android phone for the Play Store. The group email is
+          <strong>stella-fit@googlegroups.com</strong>.
         </p>
         <a class="btn btn--mint" id="group-link" href="#" target="_blank" rel="noopener noreferrer">
           Join Google Group
         </a>
+        <p class="beta-note">If you see “Content unavailable”, sign in with the Google account you were invited with, or ask for your email to be added as a tester.</p>
       </li>
 
       <li class="beta-step is-locked" id="step-play">
@@ -93,8 +99,9 @@
 
   <script>
     const BETA = {
-      // Update this to your real Google Group URL before sharing the page.
-      googleGroupUrl: "https://groups.google.com/g/stella-fit-closed-beta",
+      // Linked in Play Console closed testing (see store/TEST_GOOGLE_SIGNIN_FROM_PLAY.md).
+      googleGroupUrl: "https://groups.google.com/g/stella-fit",
+      googleGroupEmail: "stella-fit@googlegroups.com",
       playTestingUrl: "https://play.google.com/apps/testing/com.restfit.app",
       pageUrl: "https://ilda-cornolius.github.io/RestFit/beta/"
     };
@@ -130,6 +137,7 @@
         "",
         "1) Join the Google Group (same Google account as your phone):",
         BETA.googleGroupUrl,
+        "Group email: " + BETA.googleGroupEmail,
         "",
         "2) After you're in the group, open this Google Play testing link:",
         BETA.playTestingUrl,
