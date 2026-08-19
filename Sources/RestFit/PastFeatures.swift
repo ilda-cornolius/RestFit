@@ -41,6 +41,31 @@
 /// - Store: `todoItems`, `addTodo`, `toggleTodo`, `deleteTodo`
 ///
 /// To restore: add a dedicated tab or a row on the Workout/Alarm screens.
+///
+/// ## Today I'm doing (daily workout log)
+/// Pick Rest / Cardio / a named workout for today, log lifts with weights or walks,
+/// and see “What you did this week.” Last pick auto-finalizes at night (~10 PM) or
+/// when the calendar day rolls over; opening the app the next day starts a fresh pick.
+/// Data stays on-device with the signed-in user (`dailyWorkoutLogs`, `todayWorkoutPick`
+/// in `PersistedState` / wellness JSON).
+///
+/// Files still in the project:
+/// - `Views/Workout/TodayWorkoutCard.swift` (`TodayWorkoutCard`, `WeightCheckInSheet`)
+/// - Models: `DailyWorkoutActivity`, `DailyWorkoutActivityKind`, `DailyWorkoutLog`, `TodayWorkoutPick`
+/// - Store: `pickTodayWorkout`, `addTodayLift`, `addTodayWalk`, `addTodayActivity`,
+///   `removeTodayWorkoutActivity`, `dailyWorkoutLog(for:)`, `recentDailyWorkoutLogs`,
+///   `normalizeTodayWorkoutPick`, `checkDailyWorkoutOnTick`, `finalizeWorkoutDay`
+///
+/// To restore in `StrengthPlanView` (when not in a live workout session):
+/// ```swift
+/// TodayWorkoutCard()
+///     .padding(.horizontal, 24)
+/// // …
+/// DailyWorkoutHistoryCard()
+///     .padding(.horizontal, 24)
+/// ```
+/// Desired behavior when restoring: each day’s last pick saves to the user’s
+/// associated on-device store; next calendar day resets the active pick.
 enum PastFeatures {
-    static let note = "Meditation, Journal, Pomodoro, and To-Do were previous Stella Fit features. Source remains in the project for a future restore."
+    static let note = "Meditation, Journal, Pomodoro, To-Do, and Today I'm doing were previous Stella Fit features. Source remains in the project for a future restore."
 }

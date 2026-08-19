@@ -35,7 +35,6 @@ enum AppTab: String, Hashable, CaseIterable {
 struct ContentView: View {
     @State private var store = WellnessStore()
     @State private var selectedTab: AppTab = .home
-    @State private var tabTransitionForward = true
     @State private var showLogSleep = false
     @State private var showAddWeight = false
     @State private var showWeightCheckIn = false
@@ -102,7 +101,7 @@ struct ContentView: View {
                 ZStack {
                     tabContent
                         .id(selectedTab)
-                        .transition(AppLayout.tabScreenTransition(forward: tabTransitionForward))
+                        .transition(AppLayout.tabScreenTransition)
                 }
                     .frame(maxWidth: contentMax)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -137,7 +136,6 @@ struct ContentView: View {
 
     private func selectTab(_ tab: AppTab) {
         guard tab != selectedTab else { return }
-        tabTransitionForward = tab.barIndex > selectedTab.barIndex
         withAnimation(AppLayout.tabSwitchAnimation) {
             selectedTab = tab
         }

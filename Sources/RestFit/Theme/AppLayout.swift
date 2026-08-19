@@ -21,14 +21,9 @@ enum AppLayout {
 
     static let scrollTailPadding: CGFloat = 12.0
 
-    static func tabScreenTransition(forward: Bool) -> AnyTransition {
-        let insertEdge: Edge = forward ? .trailing : .leading
-        let removeEdge: Edge = forward ? .leading : .trailing
-        return .asymmetric(
-            insertion: AnyTransition.move(edge: insertEdge).combined(with: AnyTransition.opacity),
-            removal: AnyTransition.move(edge: removeEdge).combined(with: AnyTransition.opacity)
-        )
+    static var tabScreenTransition: AnyTransition {
+        AnyTransition.opacity
     }
 
-    static let tabSwitchAnimation: Animation = .spring(response: 0.4, dampingFraction: 0.86)
+    static let tabSwitchAnimation: Animation = .easeInOut(duration: 0.28)
 }
