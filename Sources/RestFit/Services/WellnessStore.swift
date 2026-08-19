@@ -1674,18 +1674,33 @@ import OSLog
         completedStrengthSets.first { $0.exerciseID == exerciseID }?.completedSets ?? 0
     }
 
+    /// Advance to the next set (warm-up or working). Taps 0…warmUp.count-1 are warm-ups; the rest are working sets.
     func tapStrengthSet(for exercise: StrengthExercise) {
         let current = completedSets(for: exercise.id)
-        guard current < exercise.sets else { return }
+        guard current < exercise.totalSessionTaps else { return }
         setCompletedSets(current + 1, for: exercise.id)
     }
 
+    /// How many warm-up taps have been completed for this exercise.
+    func completedWarmUps(for exercise: StrengthExercise) -> Int {
+        min(completedSets(for: exercise.id), exercise.warmUpProgression.count)
+    }
+
+    /// How many working-set taps have been completed.
+    func completedWorkingSets(for exercise: StrengthExercise) -> Int {
+        max(0, completedSets(for: exercise.id) - exercise.warmUpProgression.count)
+    }
+
+    func isWarmUpDone(_ index: Int, for exercise: StrengthExercise) -> Bool {
+        completedSets(for: exercise.id) > index
+    }
+
     func isStrengthExerciseDone(_ exercise: StrengthExercise) -> Bool {
-        completedSets(for: exercise.id) >= exercise.sets
+        completedSets(for: exercise.id) >= exercise.totalSessionTaps
     }
 
     func totalCompletedSets(for exercises: [StrengthExercise]) -> Int {
-        exercises.reduce(0) { $0 + min(completedSets(for: $1.id), $1.sets) }
+        exercises.reduce(0) { $0 + min(completedWorkingSets(for: $1), $1.sets) }
     }
 
     func totalPlannedSets(for exercises: [StrengthExercise]) -> Int {

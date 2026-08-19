@@ -569,6 +569,7 @@ struct StrengthExercise: Identifiable, Codable, Hashable {
     var reps: Int
     var weightKg: Double
     var notes: String
+    var includeWarmUp: Bool
 
     init(
         id: UUID = UUID(),
@@ -576,7 +577,8 @@ struct StrengthExercise: Identifiable, Codable, Hashable {
         sets: Int = 3,
         reps: Int = 8,
         weightKg: Double = 61.2,
-        notes: String = ""
+        notes: String = "",
+        includeWarmUp: Bool = true
     ) {
         self.id = id
         self.name = name
@@ -584,6 +586,22 @@ struct StrengthExercise: Identifiable, Codable, Hashable {
         self.reps = reps
         self.weightKg = weightKg
         self.notes = notes
+        self.includeWarmUp = includeWarmUp
+    }
+
+    /// Auto-calculated warm-up progression: 0%, 50%, 75% of working weight.
+    var warmUpProgression: [(weightKg: Double, reps: Int)] {
+        guard includeWarmUp else { return [] }
+        return [
+            (0,              10),
+            (weightKg * 0.50, 5),
+            (weightKg * 0.75, 3),
+        ]
+    }
+
+    /// Total taps needed in a session: warm-up count + working sets.
+    var totalSessionTaps: Int {
+        warmUpProgression.count + sets
     }
 }
 

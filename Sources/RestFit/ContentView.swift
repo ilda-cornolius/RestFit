@@ -376,7 +376,7 @@ struct FastingView: View {
                 FastingHistoryCard(showClearConfirm: $showClearFastHistory)
                     .padding(.horizontal, 24)
 
-                ForEach(store.guidance.filter { $0.icon == "flame.fill" || $0.icon == "drop.fill" || $0.icon == "fork.knife" }) { tip in
+                ForEach(fastingGuidanceCards) { tip in
                     GuidanceCard(guidance: tip)
                         .padding(.horizontal, 24)
                 }
@@ -390,6 +390,14 @@ struct FastingView: View {
             }
         } message: {
             Text("This removes every completed fast from this device. It cannot be undone.")
+        }
+    }
+
+    private var fastingGuidanceCards: [WellnessGuidance] {
+        let hiddenTitles: Set<String> = ["Hydration check", "Time to train", "Workout day"]
+        return store.guidance.filter { tip in
+            !hiddenTitles.contains(tip.title)
+                && (tip.icon == "flame.fill" || tip.icon == "fork.knife")
         }
     }
 }

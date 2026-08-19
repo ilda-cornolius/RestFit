@@ -441,7 +441,8 @@ struct StrengthPlanView: View {
                 name: trimmed.isEmpty ? "Lift" : trimmed,
                 sets: draftLiftSets,
                 reps: draftLiftReps,
-                weightKg: weightKg
+                weightKg: weightKg,
+                includeWarmUp: true
             )
         )
         resetDraftLift()
@@ -738,6 +739,9 @@ struct StrengthPlanView: View {
                                 color: RestFitTheme.coral
                             )
                             .frame(height: 108)
+                            HStack(spacing: 16) {
+                                chartLegendItem(color: RestFitTheme.coral, title: "Cardio")
+                            }
                         }
                     case .workouts:
                         VStack(alignment: .leading, spacing: 8) {
@@ -750,6 +754,9 @@ struct StrengthPlanView: View {
                                 color: RestFitTheme.mint
                             )
                             .frame(height: 108)
+                            HStack(spacing: 16) {
+                                chartLegendItem(color: RestFitTheme.mint, title: "Workouts")
+                            }
                         }
                     case .combined:
                         VStack(alignment: .leading, spacing: 8) {
@@ -986,6 +993,23 @@ struct StrengthPlanView: View {
                     store.adjustStrengthWeight(selectedDay, id: current.id, deltaDisplay: store.liftWeightStep)
                 }
             }
+
+            HStack {
+                Text("Warm-up sets (0% → 50% → 75%)")
+                    .font(.caption)
+                    .foregroundStyle(RestFitTheme.muted)
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { current.includeWarmUp },
+                    set: { val in
+                        var updated = current
+                        updated.includeWarmUp = val
+                        updateExercise(updated)
+                    }
+                ))
+                .labelsHidden()
+                .tint(RestFitTheme.mint)
+            }
         }
         .padding(12)
         .background(RestFitTheme.card)
@@ -993,22 +1017,24 @@ struct StrengthPlanView: View {
     }
 
     private func sessionLiftRow(_ exercise: StrengthExercise) -> some View {
-        let completed = store.completedSets(for: exercise.id)
-        let done = store.isStrengthExerciseDone(exercise)
+        let totalTapped  = store.completedSets(for: exercise.id)
+        let workingDone  = store.completedWorkingSets(for: exercise)
+        let allDone      = store.isStrengthExerciseDone(exercise)
+        let warmUps      = exercise.warmUpProgression
 
         return Button {
             store.tapStrengthSet(for: exercise)
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 12) {
-                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                    Image(systemName: allDone ? "checkmark.circle.fill" : "circle")
                         .font(.title3)
-                        .foregroundStyle(done ? RestFitTheme.mint : RestFitTheme.faint)
+                        .foregroundStyle(allDone ? RestFitTheme.mint : RestFitTheme.faint)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(exercise.name)
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(done ? RestFitTheme.muted : .white)
+                            .foregroundStyle(allDone ? RestFitTheme.muted : .white)
                         Text("\(exercise.reps) reps @ \(store.liftWeightLabel(exercise.weightKg))")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(RestFitTheme.mint)
@@ -1016,12 +1042,60 @@ struct StrengthPlanView: View {
 
                     Spacer()
 
-                    Text("\(completed)/\(exercise.sets)")
+                    Text("\(workingDone)/\(exercise.sets)")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(completed > 0 ? RestFitTheme.mint : RestFitTheme.faint)
+                        .foregroundStyle(workingDone > 0 ? RestFitTheme.mint : RestFitTheme.faint)
                 }
 
-                setProgressDots(completed: completed, total: exercise.sets)
+                if !warmUps.isEmpty {
+                    Divider().overlay(RestFitTheme.line)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Warm-up")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(RestFitTheme.faint)
+
+                        HStack(spacing: 6) {
+                            ForEach(Array(warmUps.enumerated()), id: \.offset) { index, warmUp in
+                                let done = totalTapped > index
+                                VStack(spacing: 3) {
+                                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                                        .font(.caption)
+                                        .foregroundStyle(done ? RestFitTheme.mint : RestFitTheme.faint)
+                                    Text(store.liftWeightLabel(warmUp.weightKg))
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(done ? RestFitTheme.muted : .white)
+                                    Text("\(warmUp.reps)r")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(RestFitTheme.faint)
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+
+                            Image(systemName: "arrow.right")
+                                .font(.caption2)
+                                .foregroundStyle(RestFitTheme.faint)
+
+                            ForEach(0..<exercise.sets, id: \.self) { index in
+                                let done = workingDone > index
+                                VStack(spacing: 3) {
+                                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                                        .font(.caption)
+                                        .foregroundStyle(done ? RestFitTheme.mint : RestFitTheme.faint)
+                                    Text(store.liftWeightLabel(exercise.weightKg))
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(done ? RestFitTheme.muted : .white)
+                                    Text("\(exercise.reps)r")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(RestFitTheme.faint)
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+                    }
+                } else {
+                    setProgressDots(completed: workingDone, total: exercise.sets)
+                }
             }
             .padding(12)
             .background(RestFitTheme.card)
@@ -1030,6 +1104,7 @@ struct StrengthPlanView: View {
         .buttonStyle(.plain)
     }
 
+    @ViewBuilder
     private func setProgressDots(completed: Int, total: Int) -> some View {
         HStack(spacing: 6) {
             ForEach(Array(0..<total), id: \.self) { index in
