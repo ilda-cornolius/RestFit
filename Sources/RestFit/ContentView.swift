@@ -282,6 +282,8 @@ struct BottomTabBar: View {
                         Text(tab.title.uppercased())
                             .font(.system(size: 10.0, weight: .bold))
                             .tracking(0.5)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
                             .foregroundStyle(selectedTab == tab ? RestFitTheme.mint : RestFitTheme.faint)
                     }
                     .frame(maxWidth: .infinity)
@@ -604,118 +606,102 @@ private func historyActionButton(
 
 struct ProfileView: View {
     @Environment(WellnessStore.self) private var store
-    private var keyboard: AeroKeyboardController { AeroKeyboardController.shared }
     var onProfile: () -> Void = {}
-    @State private var name: String = ""
-    @State private var targetWeight: String = ""
-    @State private var selectedProtocol: FastingProtocol = .sixteenEight
-    @State private var remindersEnabled = true
+    @State private var showEditProfile = false
     @State private var healthMessage: String?
     @State private var showPrivacyPolicy = false
     @State private var showClearDataConfirm = false
     @State private var showDeleteAccountConfirm = false
     @State private var isDeletingAccount = false
     @State private var accountMessage: String?
-    @State private var showProfileSaved = false
+
+    private var displayName: String {
+        let fromProfile = WellnessGuide.personName(from: store.profile.name)
+            ?? WellnessGuide.firstName(from: store.profile.name)
+        if let fromProfile, !fromProfile.isEmpty { return fromProfile }
+        if !store.greetingName.isEmpty { return store.greetingName }
+        return "Stella Fit"
+    }
+
+    private var targetWeightLabel: String {
+        "Target \(String(format: "%.1f", store.targetWeightDisplay)) \(store.weightUnitLabel)"
+    }
 
     var body: some View {
-        ZStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    AppHeader(section: "Profile", onProfile: onProfile)
+        ScrollView {
+            VStack(spacing: 20) {
+                AppHeader(section: "Profile", onProfile: onProfile)
 
-                    ProfileAvatar(
-                        name: WellnessGuide.firstName(from: name) ?? store.greetingName,
-                        photoURL: store.authUser?.photoURL
-                    )
-                    .padding(.top, 4.0)
+                profileHero
 
-                    SurfaceCard {
-                        VStack(alignment: .leading, spacing: 16) {
-                            labeledField("Name", text: $name)
-                            labeledField("Target weight (\(store.weightUnitLabel))", text: $targetWeight, mode: AeroKeyboardMode.decimal)
+                SurfaceCard {
+                    VStack(alignment: .leading, spacing: 14) {
+                        profileDetailRow(title: "Fasting protocol", value: store.profile.fastingProtocol.displayName)
+                        profileDetailRow(
+                            title: "Weight units",
+                            value: store.usesPounds ? "Pounds (lb)" : "Kilograms (kg)"
+                        )
 
-                            Toggle(isOn: Binding(
-                                get: { store.usesPounds },
-                                set: { newValue in
-                                    store.setUsesPounds(newValue)
-                                    targetWeight = String(format: "%.1f", store.targetWeightDisplay)
-                                }
-                            )) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Weight in pounds")
-                                        .foregroundStyle(.white)
-                                    Text(store.usesPounds ? "Currently showing lb" : "Currently showing kg")
-                                        .font(.caption)
-                                        .foregroundStyle(RestFitTheme.muted)
-                                }
-                            }
-                            .tint(RestFitTheme.mint)
+                        Button {
+                            showEditProfile = true
+                        } label: {
+                            Text("Edit profile")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(RestFitTheme.canvas)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 13)
+                                .background(RestFitTheme.mint)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 4)
+                    }
+                }
+                .padding(.horizontal, 24)
 
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Fasting protocol")
-                                    .font(.caption)
-                                    .foregroundStyle(RestFitTheme.muted)
-                                Picker("Protocol", selection: $selectedProtocol) {
-                                    ForEach(FastingProtocol.allCases) { proto in
-                                        Text(proto.displayName).tag(proto)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .tint(RestFitTheme.mint)
-                            }
+                SurfaceCard {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Preferences")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
 
-                            Toggle(isOn: $remindersEnabled) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Fasting reminders")
-                                        .foregroundStyle(.white)
-                                    Text("Hydration and fast-complete notifications")
-                                        .font(.caption)
-                                        .foregroundStyle(RestFitTheme.muted)
-                                }
-                            }
-                            .tint(RestFitTheme.mint)
-
-                            Toggle(isOn: Binding(
-                                get: { store.backgroundAnimationEnabled },
-                                set: { store.setBackgroundAnimationEnabled($0) }
-                            )) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Background animation")
-                                        .foregroundStyle(.white)
-                                    Text("Drifting glow on the sign-in screen")
-                                        .font(.caption)
-                                        .foregroundStyle(RestFitTheme.muted)
-                                }
-                            }
-                            .tint(RestFitTheme.mint)
-
-                            MintButton(title: "Save Profile") {
-                                let entered = Double(targetWeight) ?? store.targetWeightDisplay
-                                store.updateProfile(
-                                    name: name,
-                                    targetWeight: store.kilogramsFromDisplay(entered),
-                                    fastingProtocol: selectedProtocol
-                                )
-                                store.setRemindersEnabled(remindersEnabled)
-                                if remindersEnabled && store.isFasting {
+                        Toggle(isOn: Binding(
+                            get: { store.remindersEnabled },
+                            set: { newValue in
+                                store.setRemindersEnabled(newValue)
+                                if newValue && store.isFasting {
                                     store.scheduleReminders()
-                                } else if !remindersEnabled {
+                                } else if !newValue {
                                     store.cancelReminders()
                                 }
-                                withAnimation(.easeOut(duration: 0.18)) {
-                                    showProfileSaved = true
-                                }
-                                Task { @MainActor in
-                                    try? await Task.sleep(nanoseconds: 1_600_000_000)
-                                    withAnimation(.easeIn(duration: 0.18)) {
-                                        showProfileSaved = false
-                                    }
-                                }
+                            }
+                        )) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Fasting reminders")
+                                    .foregroundStyle(.white)
+                                Text("Hydration and fast-complete notifications")
+                                    .font(.caption)
+                                    .foregroundStyle(RestFitTheme.muted)
                             }
                         }
+                        .tint(RestFitTheme.mint)
+
+                        Toggle(isOn: Binding(
+                            get: { store.backgroundAnimationEnabled },
+                            set: { store.setBackgroundAnimationEnabled($0) }
+                        )) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Background animation")
+                                    .foregroundStyle(.white)
+                                Text("Drifting glow on the sign-in screen")
+                                    .font(.caption)
+                                    .foregroundStyle(RestFitTheme.muted)
+                            }
+                        }
+                        .tint(RestFitTheme.mint)
                     }
-                    .padding(.horizontal, 24)
+                }
+                .padding(.horizontal, 24)
 
                 SurfaceCard {
                     VStack(alignment: .leading, spacing: 12) {
@@ -843,27 +829,10 @@ struct ProfileView: View {
                 }
                 .padding(.horizontal, 24)
             }
-            .padding(.bottom, keyboard.isPresented ? 360.0 : AppLayout.scrollTailPadding)
-            .animation(AppLayout.keyboardAnimation, value: keyboard.isPresented)
-            }
-
-            if showProfileSaved {
-                Color.black.opacity(0.35)
-                    .ignoresSafeArea()
-
-                Text("Profile saved")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 28)
-                    .padding(.vertical, 18)
-                    .background(RestFitTheme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(RestFitTheme.mint.opacity(0.55), lineWidth: 1)
-                    )
-                    .shadow(color: RestFitTheme.mint.opacity(0.25), radius: 18.0, x: 0.0, y: 8.0)
-            }
+            .padding(.bottom, AppLayout.scrollTailPadding)
+        }
+        .sheet(isPresented: $showEditProfile) {
+            EditProfileSheet()
         }
         .sheet(isPresented: $showPrivacyPolicy) {
             PrivacyPolicyView()
@@ -872,10 +841,6 @@ struct ProfileView: View {
             Button("Cancel", role: .cancel) {}
             Button("Clear data", role: .destructive) {
                 store.clearOnDeviceDataKeepingAccount()
-                name = store.profile.name
-                targetWeight = String(format: "%.1f", store.targetWeightDisplay)
-                selectedProtocol = store.profile.fastingProtocol
-                remindersEnabled = store.remindersEnabled
                 accountMessage = "On-device wellness data cleared. Your account is still signed in."
             }
         } message: {
@@ -898,12 +863,163 @@ struct ProfileView: View {
         } message: {
             Text("This deletes your Stella Fit account (Firebase email login when applicable), signs you out, and clears on-device data. Google users should also revoke Stella Fit access in their Google Account if desired. See \(RestFitLegal.deleteAccountURL)")
         }
-        .onAppear {
-            name = store.profile.name
-            targetWeight = String(format: "%.1f", store.targetWeightDisplay)
-            selectedProtocol = store.profile.fastingProtocol
-            remindersEnabled = store.remindersEnabled
+    }
+
+    private var profileHero: some View {
+        VStack(spacing: 12) {
+            ProfileAvatar(
+                name: displayName,
+                photoURL: store.authUser?.photoURL
+            )
+
+            VStack(spacing: 6) {
+                Text(displayName)
+                    .font(RestFitTheme.manrope(size: 28.0, bold: true))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+
+                Text(targetWeightLabel)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.mint)
+
+                Text(store.profile.fastingProtocol.displayName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.muted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 24)
         }
+        .padding(.top, 4)
+        .padding(.bottom, 4)
+    }
+
+    private func profileDetailRow(title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(RestFitTheme.muted)
+            Spacer(minLength: 12)
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+}
+
+struct EditProfileSheet: View {
+    @Environment(WellnessStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    private var keyboard: AeroKeyboardController { AeroKeyboardController.shared }
+
+    @State private var name: String = ""
+    @State private var targetWeight: String = ""
+    @State private var selectedProtocol: FastingProtocol = .sixteenEight
+    @State private var usesPounds = true
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Update your name, target weight, and fasting protocol.")
+                        .font(.subheadline)
+                        .foregroundStyle(RestFitTheme.muted)
+
+                    labeledField("Name", text: $name)
+                    labeledField(
+                        "Target weight (\(usesPounds ? "lb" : "kg"))",
+                        text: $targetWeight,
+                        mode: AeroKeyboardMode.decimal
+                    )
+
+                    Toggle(isOn: $usesPounds) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Weight in pounds")
+                                .foregroundStyle(.white)
+                            Text(usesPounds ? "Showing lb" : "Showing kg")
+                                .font(.caption)
+                                .foregroundStyle(RestFitTheme.muted)
+                        }
+                    }
+                    .tint(RestFitTheme.mint)
+                    .onChange(of: usesPounds) { _, newValue in
+                        convertTargetWeight(toPounds: newValue)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Fasting protocol")
+                            .font(.caption)
+                            .foregroundStyle(RestFitTheme.muted)
+                        Picker("Protocol", selection: $selectedProtocol) {
+                            ForEach(FastingProtocol.allCases) { proto in
+                                Text(proto.displayName).tag(proto)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(RestFitTheme.mint)
+                    }
+
+                    MintButton(title: "Save changes") {
+                        saveProfile()
+                    }
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Cancel")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(RestFitTheme.muted)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(24)
+                .padding(.bottom, keyboard.isPresented ? 360.0 : 24.0)
+            }
+            .background(RestFitTheme.canvas.ignoresSafeArea())
+            .navigationTitle("Edit profile")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+            .onAppear {
+                loadFromStore()
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func loadFromStore() {
+        name = store.profile.name
+        usesPounds = store.usesPounds
+        targetWeight = String(format: "%.1f", store.targetWeightDisplay)
+        selectedProtocol = store.profile.fastingProtocol
+    }
+
+    private func convertTargetWeight(toPounds: Bool) {
+        guard let value = Double(targetWeight) else { return }
+        if toPounds {
+            targetWeight = String(format: "%.1f", value * 2.2046226218)
+        } else {
+            targetWeight = String(format: "%.1f", value / 2.2046226218)
+        }
+    }
+
+    private func saveProfile() {
+        store.setUsesPounds(usesPounds)
+        let entered = Double(targetWeight) ?? store.targetWeightDisplay
+        store.updateProfile(
+            name: name,
+            targetWeight: store.kilogramsFromDisplay(entered),
+            fastingProtocol: selectedProtocol
+        )
+        dismiss()
     }
 
     private func labeledField(_ title: String, text: Binding<String>, mode: AeroKeyboardMode = .text) -> some View {
