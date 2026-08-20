@@ -500,19 +500,23 @@ img {
 }
 
 /* Closed beta signup */
+.page--beta .callout {
+  margin-bottom: 2rem;
+}
+
 .beta-steps {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 18px;
+  gap: 24px;
 }
 
 .beta-step {
-  padding: 1.25rem 1.35rem;
-  border-radius: 16px;
+  padding: 1.5rem 1.45rem 1.6rem;
+  border-radius: 18px;
   border: 1px solid var(--line);
-  background: rgba(16, 18, 42, 0.72);
+  background: rgba(16, 18, 42, 0.78);
 }
 
 .beta-step.is-locked {
@@ -520,39 +524,45 @@ img {
 }
 
 .beta-step.is-unlocked {
-  border-color: rgba(46, 229, 157, 0.35);
-  box-shadow: 0 0 0 1px rgba(46, 229, 157, 0.08);
+  border-color: rgba(46, 229, 157, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(46, 229, 157, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.22);
 }
 
 .beta-step__label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  margin-bottom: 10px;
+  width: 1.85rem;
+  height: 1.85rem;
+  margin-bottom: 12px;
   border-radius: 999px;
   background: var(--mint-dim);
   color: var(--mint);
   font-size: 0.82rem;
   font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .beta-step h2 {
-  margin: 0 0 8px;
-  font-size: 1.15rem;
+  margin: 0 0 10px;
+  font-size: 1.2rem;
   color: var(--text);
+  letter-spacing: -0.025em;
 }
 
 .beta-step p {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
+  line-height: 1.6;
 }
 
 .beta-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 12px;
+  margin-top: 6px;
+  margin-bottom: 0;
 }
 
 .beta-actions .btn {
@@ -560,6 +570,15 @@ img {
   min-height: 52px;
   -webkit-tap-highlight-color: rgba(46, 229, 157, 0.25);
   touch-action: manipulation;
+}
+
+.beta-step__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 @media (min-width: 480px) {
@@ -596,11 +615,12 @@ img {
 }
 
 .beta-email {
-  margin-top: 28px;
-  padding: 1.35rem;
-  border-radius: 16px;
+  margin-top: 32px;
+  padding: 1.5rem 1.45rem;
+  border-radius: 18px;
   border: 1px solid var(--line);
-  background: rgba(16, 18, 42, 0.72);
+  background: rgba(16, 18, 42, 0.78);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
 }
 
 .beta-email h2 {
@@ -636,13 +656,25 @@ img {
 }
 
 .beta-note {
-  margin-top: 10px;
+  margin: 0;
   font-size: 0.88rem;
+  line-height: 1.55;
   color: var(--faint);
 }
 
+.beta-note--help {
+  margin: 0;
+  padding: 13px 15px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
 .beta-copy-msg {
-  margin-top: 10px;
+  margin-top: 16px;
   color: var(--mint);
   font-size: 0.9rem;
   font-weight: 600;
