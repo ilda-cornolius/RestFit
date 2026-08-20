@@ -51,6 +51,7 @@ struct ContentView: View {
                 mainApp
             }
         }
+        .id(store.authUser?.id ?? "signed-out")
         .environment(store)
         .overlay {
             ZStack {

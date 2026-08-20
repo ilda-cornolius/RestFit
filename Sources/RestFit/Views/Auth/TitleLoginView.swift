@@ -193,7 +193,9 @@ struct TitleLoginView: View {
             }
 
             Button {
-                Task { await signInGoogle() }
+                Task { @MainActor in
+                    await signInGoogle()
+                }
             } label: {
                 HStack(spacing: 12) {
                     Text("G")
@@ -244,7 +246,9 @@ struct TitleLoginView: View {
             AeroTextField(title: "Password", text: $password, mode: AeroKeyboardMode.secure, placeholder: "Password")
 
             Button {
-                Task { await signInEmail() }
+                Task { @MainActor in
+                    await signInEmail()
+                }
             } label: {
                 Text(isWorking ? "Please wait…" : "Sign in")
                     .font(.body.weight(.semibold))
@@ -258,7 +262,9 @@ struct TitleLoginView: View {
             .disabled(isWorking)
 
             Button {
-                Task { await registerEmail() }
+                Task { @MainActor in
+                    await registerEmail()
+                }
             } label: {
                 Text("Create account")
                     .font(.body.weight(.semibold))
@@ -295,13 +301,17 @@ struct TitleLoginView: View {
         }
     }
 
+    @MainActor
     private func signInGoogle() async {
         await runAuth {
+            infoMessage = "Finishing Google sign-in…"
             let user = try await GoogleAuthService.signIn()
             store.signIn(user)
+            infoMessage = nil
         }
     }
 
+    @MainActor
     private func runAuth(_ work: () async throws -> Void) async {
         errorMessage = nil
         infoMessage = nil
@@ -310,8 +320,12 @@ struct TitleLoginView: View {
         do {
             try await work()
         } catch {
+            infoMessage = nil
             if let authError = error as? GoogleAuthError {
-                if case .cancelled = authError { return }
+                if case .cancelled = authError {
+                    errorMessage = "Sign-in was cancelled. Tap Sign in with Google and try again."
+                    return
+                }
                 errorMessage = authError.errorDescription ?? "Google sign-in failed. Try again."
                 return
             }

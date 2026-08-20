@@ -47,46 +47,28 @@ enum GoogleAuthService {
         }
         let credentialManager = androidx.credentials.CredentialManager.create(activity)
 
-        let googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(false)
-            .setServerClientId(GoogleAuthConfig.webClientID)
-            .setAutoSelectEnabled(false)
-            .build()
-
-        do {
-            return try await requestGoogleUser(
-                credentialManager: credentialManager,
-                activity: activity,
-                option: googleIdOption
-            )
-        } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
-            throw GoogleAuthError.cancelled
-        } catch {
-            if !isNoCredential(error) {
-                throw mappedFailure(error)
-            }
-        }
-
-        let signInButtonOption = com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(
+        // User tapped our button — use Sign in with Google (not One Tap / authorized-only flow).
+        let signInOption = com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(
             GoogleAuthConfig.webClientID
         ).build()
 
-        do {
-            return try await requestGoogleUser(
-                credentialManager: credentialManager,
-                activity: activity,
-                option: signInButtonOption
-            )
-        } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
-            throw GoogleAuthError.cancelled
-        } catch {
-            if isNoCredential(error) {
-                throw GoogleAuthError.failed(
-                    "No Google account is available. On this phone open Settings → Google and add or select an account, then try Sign in with Google again."
+        for attempt in 1...2 {
+            do {
+                return try await requestGoogleUser(
+                    credentialManager: credentialManager,
+                    activity: activity,
+                    option: signInOption
                 )
+            } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
+                android.util.Log.w("RestFitAuth", "Google sign-in cancelled (attempt \(attempt)): \(error)")
+                if attempt < 2 {
+                    try await Task.sleep(for: .milliseconds(450))
+                    continue
+                }
             }
-            throw mappedFailure(error)
         }
+
+        throw GoogleAuthError.cancelled
     }
 
     private static func requestGoogleUser(
@@ -129,7 +111,7 @@ enum GoogleAuthService {
         let photoURL = googleId.profilePictureUri?.toString()
 
         do {
-            return try await FirebaseAuthService.signInWithGoogle(idToken: idToken)
+            return try await firebaseGoogleSignIn(idToken: idToken)
         } catch {
             android.util.Log.w("RestFitAuth", "Firebase Google sign-in failed, using local session: \(error)")
             if let firebaseError = error as? FirebaseAuthError,
@@ -140,6 +122,23 @@ enum GoogleAuthService {
 
             let id = email.isEmpty ? UUID().uuidString : email
             return AuthUser(id: id, email: email, displayName: displayName, photoURL: photoURL)
+        }
+    }
+
+    private static func firebaseGoogleSignIn(idToken: String) async throws -> AuthUser {
+        try await withThrowingTaskGroup(of: AuthUser.self) { group in
+            group.addTask {
+                try await FirebaseAuthService.signInWithGoogle(idToken: idToken)
+            }
+            group.addTask {
+                try await Task.sleep(for: .seconds(12))
+                throw GoogleAuthError.failed("Firebase sign-in timed out")
+            }
+            guard let user = try await group.next() else {
+                throw GoogleAuthError.failed("Google sign-in did not complete.")
+            }
+            group.cancelAll()
+            return user
         }
     }
 
