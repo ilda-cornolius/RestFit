@@ -47,34 +47,51 @@ enum GoogleAuthService {
         }
         let credentialManager = androidx.credentials.CredentialManager.create(activity)
 
-        // User tapped our button — use Sign in with Google (not One Tap / authorized-only flow).
+        // 1) Explicit Sign in with Google (button tap).
         let signInOption = com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(
             GoogleAuthConfig.webClientID
         ).build()
 
-        for attempt in 1...2 {
-            do {
-                return try await requestGoogleUser(
-                    credentialManager: credentialManager,
-                    activity: activity,
-                    option: signInOption
-                )
-            } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
-                android.util.Log.w("RestFitAuth", "Google sign-in cancelled (attempt \(attempt)): \(error)")
-                if attempt < 2 {
-                    try await Task.sleep(for: .milliseconds(450))
-                    continue
-                }
+        do {
+            return try await requestGoogleUser(
+                credentialManager: credentialManager,
+                activity: activity,
+                option: signInOption
+            )
+        } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
+            android.util.Log.w("RestFitAuth", "SignInWithGoogle cancelled: \(error)")
+        } catch {
+            if !isNoCredential(error) {
+                throw mappedFailure(error)
             }
+            android.util.Log.w("RestFitAuth", "SignInWithGoogle no credential: \(error)")
         }
 
-        #if DEBUG
-        throw GoogleAuthError.cancelled
-        #else
-        throw GoogleAuthError.failed(
-            "Google Sign-In did not finish after choosing an account. \(GoogleAuthConfig.playStoreSignInHint)"
-        )
-        #endif
+        // 2) Fallback: Google ID option (works for some Play / Credential Manager paths).
+        try await Task.sleep(for: .milliseconds(350))
+        let googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(GoogleAuthConfig.webClientID)
+            .setAutoSelectEnabled(false)
+            .build()
+
+        do {
+            return try await requestGoogleUser(
+                credentialManager: credentialManager,
+                activity: activity,
+                option: googleIdOption
+            )
+        } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
+            android.util.Log.w("RestFitAuth", "GetGoogleId cancelled: \(error)")
+            throw GoogleAuthError.failed(GoogleAuthConfig.afterAccountPickHint)
+        } catch {
+            if isNoCredential(error) {
+                throw GoogleAuthError.failed(
+                    "No Google account is available. On this phone open Settings → Google and add or select an account, then try again."
+                )
+            }
+            throw mappedFailure(error)
+        }
     }
 
     private static func requestGoogleUser(
@@ -105,7 +122,7 @@ enum GoogleAuthService {
         let idToken = googleId.idToken
         guard !idToken.isEmpty else {
             throw GoogleAuthError.failed(
-                "Google did not return a sign-in token. \(GoogleAuthConfig.playStoreSignInHint)"
+                "Google did not return a sign-in token. \(GoogleAuthConfig.afterAccountPickHint)"
             )
         }
 
@@ -189,9 +206,7 @@ enum GoogleAuthService {
         android.util.Log.e("RestFitAuth", "Google credential request failed: \(text)")
 
         if lower.contains("access_denied") || lower.contains("access denied") {
-            return .failed(
-                "Google blocked sign-in for this account. In Google Cloud Console, add your Gmail under OAuth consent screen → Test users while the app is in Testing."
-            )
+            return .failed(GoogleAuthConfig.testUserHint)
         }
         if lower.contains("sha") || lower.contains("developer_error") || lower.contains("10:") {
             return .failed(GoogleAuthConfig.playStoreSignInHint)
@@ -204,7 +219,7 @@ enum GoogleAuthService {
                 "Google rejected the sign-in. Confirm Google is enabled in Firebase Authentication and the Web client ID matches your Firebase project."
             )
         }
-        return .failed("Google sign-in failed after choosing an account. Try again, or use Sign in with Email.")
+        return .failed(GoogleAuthConfig.afterAccountPickHint)
     }
     #endif
 }

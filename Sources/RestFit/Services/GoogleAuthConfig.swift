@@ -25,6 +25,13 @@ enum GoogleAuthConfig {
 
     static let playStoreSignInHint =
         "Play Store installs use a different signing key than debug builds. In Play Console → App integrity, copy the App signing SHA-1 and add it in Firebase (Project settings → Android app → fingerprints) and Google Cloud (Credentials → Android OAuth client). Expected SHA-1: \(playStoreSha1)."
+
+    /// Shown when account picker closes without a credential — usually Test users, not SHA-1.
+    static let testUserHint =
+        "Add this Gmail under Google Cloud → OAuth consent screen → Test users (while the app is in Testing), wait a few minutes, then try again."
+
+    static let afterAccountPickHint =
+        "Google Sign-In did not finish after choosing an account. \(testUserHint) If that Gmail is already a test user, reinstall from Play and try once more."
 }
 
 struct AuthUser: Codable, Hashable {
