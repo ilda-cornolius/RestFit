@@ -68,7 +68,13 @@ enum GoogleAuthService {
             }
         }
 
+        #if DEBUG
         throw GoogleAuthError.cancelled
+        #else
+        throw GoogleAuthError.failed(
+            "Google Sign-In did not finish after choosing an account. \(GoogleAuthConfig.playStoreSignInHint)"
+        )
+        #endif
     }
 
     private static func requestGoogleUser(
@@ -99,7 +105,7 @@ enum GoogleAuthService {
         let idToken = googleId.idToken
         guard !idToken.isEmpty else {
             throw GoogleAuthError.failed(
-                "Google did not return a sign-in token. Add the Play App signing SHA-1 in Firebase and Google Cloud (see store/PLAY_APP_SIGNING_SHA1.md)."
+                "Google did not return a sign-in token. \(GoogleAuthConfig.playStoreSignInHint)"
             )
         }
 
@@ -188,9 +194,7 @@ enum GoogleAuthService {
             )
         }
         if lower.contains("sha") || lower.contains("developer_error") || lower.contains("10:") {
-            return .failed(
-                "Google Sign-In failed for this Play Store install. Add the Play Console App signing SHA-1 to Firebase and the Android OAuth client (store/PLAY_APP_SIGNING_SHA1.md)."
-            )
+            return .failed(GoogleAuthConfig.playStoreSignInHint)
         }
         if lower.contains("network") || lower.contains("unable to resolve") || lower.contains("timeout") {
             return .failed("Network error during Google sign-in. Check your connection and try again.")
