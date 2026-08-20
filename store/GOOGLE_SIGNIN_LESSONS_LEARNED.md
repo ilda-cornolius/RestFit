@@ -30,7 +30,17 @@ Keep rules in `Android/app/proguard-rules.pro` (do not remove them when editing 
 -keep class com.google.firebase.auth.** { *; }
 ```
 
-Ship a **new Play build** after changing ProGuard — SHA-1 registration alone does not fix this.
+If Play Sign-In still fails after keep rules (debug works, SHA-1 + scopes correct, OAuth **In production**), disable release minify temporarily:
+
+```kotlin
+// Android/app/build.gradle.kts — release
+isMinifyEnabled = false
+isShrinkResources = false
+```
+
+That made Play behave like debug for Stella Fit. Re-enable minify later only after verifying Credential Manager still works.
+
+Ship a **new Play build** after changing ProGuard or minify — SHA-1 registration alone does not fix this.
 
 ### How to tell SHA-1 vs ProGuard
 | Check | SHA-1 missing | ProGuard stripping |

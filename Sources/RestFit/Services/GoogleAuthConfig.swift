@@ -26,12 +26,12 @@ enum GoogleAuthConfig {
     static let playStoreSignInHint =
         "Play Store installs use a different signing key than debug builds. In Play Console → App integrity, copy the App signing SHA-1 and add it in Firebase (Project settings → Android app → fingerprints) and Google Cloud (Credentials → Android OAuth client). Expected SHA-1: \(playStoreSha1)."
 
-    /// Shown when account picker closes without a credential — usually Test users, not SHA-1.
+    /// Only relevant when OAuth consent publishing status is Testing.
     static let testUserHint =
-        "Add this Gmail under Google Cloud → OAuth consent screen → Test users (while the app is in Testing), wait a few minutes, then try again."
+        "If OAuth consent is still in Testing, add this Gmail under Google Cloud → OAuth consent screen → Test users, wait a few minutes, then try again."
 
     static let afterAccountPickHint =
-        "Google didn’t finish signing in after you chose an account. While the OAuth app is in Testing, add that Gmail under Google Cloud → OAuth consent screen → Test users, wait a few minutes, then try again."
+        "Google didn’t finish signing in after you chose an account. Update Stella Fit from Play to the latest build, then try again. If it still fails, use Sign in with Email, or confirm OAuth scopes include openid, email, and profile."
 }
 
 struct AuthUser: Codable, Hashable {
