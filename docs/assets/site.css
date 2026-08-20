@@ -548,8 +548,30 @@ img {
   margin: 0 0 14px;
 }
 
-.beta-step .btn {
+.beta-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin-top: 4px;
+}
+
+.beta-actions .btn {
+  width: 100%;
+  min-height: 52px;
+  -webkit-tap-highlight-color: rgba(46, 229, 157, 0.25);
+  touch-action: manipulation;
+}
+
+@media (min-width: 480px) {
+  .beta-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .beta-actions .btn {
+    width: auto;
+    flex: 1 1 auto;
+  }
 }
 
 .beta-check {

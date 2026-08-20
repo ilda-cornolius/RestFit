@@ -3,24 +3,25 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#05060f" />
   <title>Stella Fit — Join the closed beta</title>
   <meta name="description" content="Get invited to the Stella Fit closed beta on Google Play." />
-  <link rel="icon" href="../assets/icon.png" />
+  <link rel="icon" href="/RestFit/assets/icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../assets/site.css" />
+  <link rel="stylesheet" href="/RestFit/assets/site.css" />
 </head>
 <body>
   <header class="site-nav">
     <div class="site-nav__inner">
-      <a class="brand" href="../">
-        <img class="brand__mark" src="../assets/icon.png" width="36" height="36" alt="" />
+      <a class="brand" href="/RestFit/">
+        <img class="brand__mark" src="/RestFit/assets/icon.png" width="36" height="36" alt="" />
         <span class="brand__name">Stella <span>Fit</span></span>
       </a>
       <nav class="nav-links" aria-label="Site">
-        <a href="../beta/" aria-current="page">Closed beta</a>
-        <a href="../privacy/">Privacy</a>
+        <a href="/RestFit/beta/" aria-current="page">Closed beta</a>
+        <a href="/RestFit/privacy/">Privacy</a>
         <a href="https://github.com/ilda-cornolius/RestFit">GitHub</a>
       </nav>
     </div>
@@ -32,61 +33,56 @@
     <p class="meta">Two quick steps — join the tester group, then install from Google Play.</p>
 
     <div class="callout">
-      Stella Fit is in <strong>closed testing</strong>. Join the tester Google Group with the same account you use on your Android phone, then install from the Play testing link.
-    </div>
-
-    <div class="disclaimer" id="group-help" hidden>
-      <strong>Group link not working?</strong> Ask the developer to add your Gmail in Play Console, or make sure you’re signed into Google with the account they invited. The group is <code>stella-fit@googlegroups.com</code>.
+      Stella Fit is in <strong>closed testing</strong>. Use the <strong>same Google account</strong> on this page and on your Android phone.
     </div>
 
     <ol class="beta-steps">
-      <li class="beta-step is-unlocked" id="step-group">
+      <li class="beta-step is-unlocked">
         <span class="beta-step__label">1</span>
         <h2>Join the Google Group</h2>
         <p>
-          Tap below and request to join (or accept the invite). Use the same Google account
-          you’ll use on your Android phone for the Play Store.
+          Tap the button below. Sign in with Google if asked, then request to join
+          (or accept the invite).
         </p>
+        <div class="beta-actions">
+          <a class="btn btn--mint" href="https://groups.google.com/g/stella-fit">
+            Join Google Group
+          </a>
+        </div>
         <p class="beta-note">
-          Group: <a href="https://groups.google.com/g/stella-fit" target="_blank" rel="noopener noreferrer">groups.google.com/g/stella-fit</a>
+          Group: <a href="https://groups.google.com/g/stella-fit">groups.google.com/g/stella-fit</a>
           · <strong>stella-fit@googlegroups.com</strong>
         </p>
-        <a class="btn btn--mint" id="group-link" href="https://groups.google.com/g/stella-fit" target="_blank" rel="noopener noreferrer">
-          Join Google Group
-        </a>
-        <p class="beta-note">If you see “Content unavailable”, sign in with the Google account you were invited with, or ask for your email to be added as a tester.</p>
+        <p class="beta-note">If you see “Content unavailable”, switch to the Google account you use on your phone, or ask to be added as a tester.</p>
       </li>
 
-      <li class="beta-step is-locked" id="step-play">
+      <li class="beta-step is-unlocked">
         <span class="beta-step__label">2</span>
         <h2>Install from Google Play</h2>
         <p>
-          After Google approves your group membership (usually right away), open the Play Store
-          testing link on your phone and tap <strong>Become a tester</strong>, then install.
+          After you’re in the group, tap below. On the Play page, choose
+          <strong>Become a tester</strong>, then <strong>Install</strong>.
         </p>
-        <a class="btn btn--mint" id="play-link" href="https://play.google.com/apps/testing/com.restfit.app" target="_blank" rel="noopener noreferrer" aria-disabled="true">
-          Open Google Play
-        </a>
-        <button type="button" class="btn btn--ghost" id="copy-play-link" disabled>
-          Copy Play link
-        </button>
+        <div class="beta-actions">
+          <a class="btn btn--mint" href="https://play.google.com/apps/testing/com.restfit.app">
+            Open Google Play
+          </a>
+          <button type="button" class="btn btn--ghost" id="copy-play-link">
+            Copy Play link
+          </button>
+        </div>
         <p class="beta-copy-msg" id="copy-msg" aria-live="polite"></p>
       </li>
     </ol>
 
-    <label class="beta-check" for="joined-group">
-      <input type="checkbox" id="joined-group" />
-      <span>I joined the Google Group (same Google account as my phone)</span>
-    </label>
-
     <section class="beta-email" aria-labelledby="email-heading">
-      <h2 id="email-heading">Email yourself the Play link</h2>
-      <p>Optional — we’ll open your email app with the instructions and Play link filled in.</p>
+      <h2 id="email-heading">Email yourself the links</h2>
+      <p>Optional — opens your email app with both links filled in.</p>
       <div class="beta-email__row">
-        <input type="email" id="email-input" placeholder="you@email.com" autocomplete="email" />
-        <button type="button" class="btn btn--ghost" id="email-btn">Email me the link</button>
+        <input type="email" id="email-input" placeholder="you@email.com" autocomplete="email" inputmode="email" />
+        <button type="button" class="btn btn--ghost" id="email-btn">Email me the links</button>
       </div>
-      <p class="beta-note">No server — your email app sends the message. You can also forward it to another device.</p>
+      <p class="beta-note">No server — your email app sends the message.</p>
     </section>
   </main>
 
@@ -94,45 +90,24 @@
     <div class="site-footer__inner">
       <span>Stella Fit · closed beta · not medical advice.</span>
       <span>
-        <a href="../">Home</a> ·
-        <a href="../privacy/">Privacy</a>
+        <a href="/RestFit/">Home</a> ·
+        <a href="/RestFit/privacy/">Privacy</a>
       </span>
     </div>
   </footer>
 
   <script>
     const BETA = {
-      // Linked in Play Console closed testing (see store/TEST_GOOGLE_SIGNIN_FROM_PLAY.md).
       googleGroupUrl: "https://groups.google.com/g/stella-fit",
       googleGroupEmail: "stella-fit@googlegroups.com",
       playTestingUrl: "https://play.google.com/apps/testing/com.restfit.app",
       pageUrl: "https://ilda-cornolius.github.io/RestFit/beta/"
     };
 
-    const joinedCheckbox = document.getElementById("joined-group");
-    const stepPlay = document.getElementById("step-play");
-    const playLink = document.getElementById("play-link");
-    const groupLink = document.getElementById("group-link");
     const copyBtn = document.getElementById("copy-play-link");
     const copyMsg = document.getElementById("copy-msg");
     const emailInput = document.getElementById("email-input");
     const emailBtn = document.getElementById("email-btn");
-
-    groupLink.href = BETA.googleGroupUrl;
-    playLink.href = BETA.playTestingUrl;
-
-    function setPlayUnlocked(unlocked) {
-      stepPlay.classList.toggle("is-unlocked", unlocked);
-      stepPlay.classList.toggle("is-locked", !unlocked);
-      playLink.setAttribute("aria-disabled", unlocked ? "false" : "true");
-      playLink.tabIndex = unlocked ? 0 : -1;
-      copyBtn.disabled = !unlocked;
-      if (unlocked) {
-        localStorage.setItem("stellafit-beta-joined", "1");
-      } else {
-        localStorage.removeItem("stellafit-beta-joined");
-      }
-    }
 
     function instructionsBody() {
       return [
@@ -152,21 +127,18 @@
       ].join("\n");
     }
 
-    if (localStorage.getItem("stellafit-beta-joined") === "1") {
-      joinedCheckbox.checked = true;
-      setPlayUnlocked(true);
-    }
-
-    joinedCheckbox.addEventListener("change", () => {
-      setPlayUnlocked(joinedCheckbox.checked);
-    });
-
     copyBtn.addEventListener("click", async () => {
       try {
-        await navigator.clipboard.writeText(BETA.playTestingUrl);
-        copyMsg.textContent = "Play link copied.";
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(BETA.playTestingUrl);
+          copyMsg.textContent = "Play link copied.";
+        } else {
+          window.prompt("Copy this link:", BETA.playTestingUrl);
+          copyMsg.textContent = "Link shown — copy it from the dialog.";
+        }
       } catch (err) {
-        copyMsg.textContent = "Copy failed — long-press the Play link instead.";
+        window.prompt("Copy this link:", BETA.playTestingUrl);
+        copyMsg.textContent = "Long-press the Play link to copy instead.";
       }
     });
 
@@ -177,7 +149,7 @@
         copyMsg.textContent = "Enter your email address first.";
         return;
       }
-      const subject = encodeURIComponent("Stella Fit closed beta — install link");
+      const subject = encodeURIComponent("Stella Fit closed beta — install links");
       const body = encodeURIComponent(instructionsBody());
       window.location.href = "mailto:" + encodeURIComponent(address) + "?subject=" + subject + "&body=" + body;
     });
