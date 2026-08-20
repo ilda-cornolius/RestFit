@@ -31,7 +31,7 @@ enum GoogleAuthConfig {
         "Add this Gmail under Google Cloud → OAuth consent screen → Test users (while the app is in Testing), wait a few minutes, then try again."
 
     static let afterAccountPickHint =
-        "Google Sign-In did not finish after choosing an account. \(testUserHint) If that Gmail is already a test user, reinstall from Play and try once more."
+        "Google didn’t finish signing in after you chose an account. While the OAuth app is in Testing, add that Gmail under Google Cloud → OAuth consent screen → Test users, wait a few minutes, then try again."
 }
 
 struct AuthUser: Codable, Hashable {

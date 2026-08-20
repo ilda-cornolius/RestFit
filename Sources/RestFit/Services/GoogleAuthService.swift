@@ -47,7 +47,7 @@ enum GoogleAuthService {
         }
         let credentialManager = androidx.credentials.CredentialManager.create(activity)
 
-        // 1) Explicit Sign in with Google (button tap).
+        // Button tap → Sign in with Google only (avoid a second picker that shows a false "no account" error).
         let signInOption = com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(
             GoogleAuthConfig.webClientID
         ).build()
@@ -60,35 +60,11 @@ enum GoogleAuthService {
             )
         } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
             android.util.Log.w("RestFitAuth", "SignInWithGoogle cancelled: \(error)")
-        } catch {
-            if !isNoCredential(error) {
-                throw mappedFailure(error)
-            }
-            android.util.Log.w("RestFitAuth", "SignInWithGoogle no credential: \(error)")
-        }
-
-        // 2) Fallback: Google ID option (works for some Play / Credential Manager paths).
-        try await Task.sleep(for: .milliseconds(350))
-        let googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(false)
-            .setServerClientId(GoogleAuthConfig.webClientID)
-            .setAutoSelectEnabled(false)
-            .build()
-
-        do {
-            return try await requestGoogleUser(
-                credentialManager: credentialManager,
-                activity: activity,
-                option: googleIdOption
-            )
-        } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
-            android.util.Log.w("RestFitAuth", "GetGoogleId cancelled: \(error)")
             throw GoogleAuthError.failed(GoogleAuthConfig.afterAccountPickHint)
         } catch {
             if isNoCredential(error) {
-                throw GoogleAuthError.failed(
-                    "No Google account is available. On this phone open Settings → Google and add or select an account, then try again."
-                )
+                android.util.Log.w("RestFitAuth", "SignInWithGoogle no credential after account UI: \(error)")
+                throw GoogleAuthError.failed(GoogleAuthConfig.afterAccountPickHint)
             }
             throw mappedFailure(error)
         }
