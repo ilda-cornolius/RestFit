@@ -47,10 +47,45 @@ enum GoogleAuthService {
         }
         let credentialManager = androidx.credentials.CredentialManager.create(activity)
 
-        // Button tap → Sign in with Google only (avoid a second picker that shows a false "no account" error).
+        // Clear stale Google sessions — Play devices often fail reauth with a fake "cancelled".
+        do {
+            try await credentialManager.clearCredentialState(
+                androidx.credentials.ClearCredentialStateRequest()
+            )
+        } catch {
+            android.util.Log.w("RestFitAuth", "clearCredentialState: \(error)")
+        }
+
+        // 1) Bottom-sheet Google ID (recommended first).
+        let googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(GoogleAuthConfig.webClientID)
+            .setAutoSelectEnabled(false)
+            .build()
+
+        do {
+            return try await requestGoogleUser(
+                credentialManager: credentialManager,
+                activity: activity,
+                option: googleIdOption
+            )
+        } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
+            android.util.Log.w("RestFitAuth", "GetGoogleId cancelled: \(describe(error))")
+        } catch {
+            if !isNoCredential(error) {
+                throw mappedFailure(error)
+            }
+            android.util.Log.w("RestFitAuth", "GetGoogleId no credential: \(describe(error))")
+        }
+
+        try await Task.sleep(for: .milliseconds(400))
+
+        // 2) Explicit Sign in with Google button flow + nonce.
         let signInOption = com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(
             GoogleAuthConfig.webClientID
-        ).build()
+        )
+        .setNonce(randomNonce())
+        .build()
 
         do {
             return try await requestGoogleUser(
@@ -59,12 +94,12 @@ enum GoogleAuthService {
                 option: signInOption
             )
         } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
-            android.util.Log.w("RestFitAuth", "SignInWithGoogle cancelled: \(error)")
-            throw GoogleAuthError.failed(GoogleAuthConfig.afterAccountPickHint)
+            android.util.Log.e("RestFitAuth", "SignInWithGoogle cancelled: \(describe(error))")
+            throw GoogleAuthError.failed(playCancelMessage(for: error))
         } catch {
             if isNoCredential(error) {
-                android.util.Log.w("RestFitAuth", "SignInWithGoogle no credential after account UI: \(error)")
-                throw GoogleAuthError.failed(GoogleAuthConfig.afterAccountPickHint)
+                android.util.Log.e("RestFitAuth", "SignInWithGoogle no credential: \(describe(error))")
+                throw GoogleAuthError.failed(playCancelMessage(for: error))
             }
             throw mappedFailure(error)
         }
@@ -98,7 +133,7 @@ enum GoogleAuthService {
         let idToken = googleId.idToken
         guard !idToken.isEmpty else {
             throw GoogleAuthError.failed(
-                "Google did not return a sign-in token. \(GoogleAuthConfig.afterAccountPickHint)"
+                "Google did not return a sign-in token. \(GoogleAuthConfig.playStoreSignInHint)"
             )
         }
 
@@ -141,6 +176,31 @@ enum GoogleAuthService {
         }
     }
 
+    private static func randomNonce() -> String {
+        var bytes: [UInt8] = []
+        for _ in 0..<16 {
+            bytes.append(UInt8.random(in: 0...255))
+        }
+        return Data(bytes).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
+    private static func describe(_ error: Error) -> String {
+        "\(type(of: error)): \(error) | \(error.localizedDescription)"
+    }
+
+    /// Play often reports SHA / reauth failures as "user cancelled".
+    private static func playCancelMessage(for error: Error) -> String {
+        let detail = describe(error)
+        let lower = detail.lowercased()
+        if lower.contains("16") || lower.contains("reauth") || lower.contains("developer") || lower.contains("10:") {
+            return "Google blocked Play Sign-In (config). \(GoogleAuthConfig.playStoreSignInHint) Detail: \(String(detail.prefix(160)))"
+        }
+        return "Google closed Sign-In after you chose an account (common on Play when the Android OAuth client SHA-1 does not match Play App signing). Confirm Google Cloud → Credentials → Android OAuth client for package com.restfit.app uses SHA-1 \(GoogleAuthConfig.playStoreSha1). Detail: \(String(detail.prefix(120)))"
+    }
+
     private static func normalizedEmail(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.contains("@") {
@@ -177,14 +237,14 @@ enum GoogleAuthService {
     }
 
     private static func mappedFailure(_ error: Error) -> GoogleAuthError {
-        let text = String(describing: error)
+        let text = describe(error)
         let lower = text.lowercased()
         android.util.Log.e("RestFitAuth", "Google credential request failed: \(text)")
 
         if lower.contains("access_denied") || lower.contains("access denied") {
             return .failed(GoogleAuthConfig.testUserHint)
         }
-        if lower.contains("sha") || lower.contains("developer_error") || lower.contains("10:") {
+        if lower.contains("sha") || lower.contains("developer_error") || lower.contains("10:") || lower.contains("reauth") {
             return .failed(GoogleAuthConfig.playStoreSignInHint)
         }
         if lower.contains("network") || lower.contains("unable to resolve") || lower.contains("timeout") {
@@ -195,7 +255,7 @@ enum GoogleAuthService {
                 "Google rejected the sign-in. Confirm Google is enabled in Firebase Authentication and the Web client ID matches your Firebase project."
             )
         }
-        return .failed(GoogleAuthConfig.afterAccountPickHint)
+        return .failed(playCancelMessage(for: error))
     }
     #endif
 }
