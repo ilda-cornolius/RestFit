@@ -12,22 +12,25 @@ Use this when Sign-In works in debug/`adb` but fails after choosing an account f
 |---------|----------------------------|--------------------|
 | Debug / emulator | Debug keystore SHA-1 | `44:73:49:9B:…` |
 | Local release APK | Upload keystore SHA-1 | `16:E9:B1:B4:…` |
-| Play Store / closed testing | **Play App signing** SHA-1 | `CF:50:E6:E5:…` |
+| Play Store / closed testing | **Play App signing** SHA-1 | `CF:E4:0A:CE:…` (current) |
 
 Play re-signs your AAB. Upload-key SHA-1 is **not** enough for Play installs.
 
-Stella Fit fingerprints (keep all three registered):
+**Verify the live cert** with `apksigner verify --print-certs` on a Play-installed `base.apk` — Play Console “classical” SHA can lag or rotate (Stella Fit had `CF:50:…` registered while devices used `CF:E4:…`).
+
+Stella Fit fingerprints (keep all registered):
 
 | Role | SHA-1 |
 |------|--------|
 | Upload | `16:E9:B1:B4:B4:5D:BB:35:87:8F:21:65:D7:F8:72:FD:19:75:A1:63` |
 | Debug | `44:73:49:9B:15:C4:A6:B6:7D:35:4A:4B:C3:4E:40:B4:D0:17:E8:8F` |
-| Play App signing | `CF:50:E6:E5:17:F3:0F:A3:B8:1E:CB:B1:23:91:77:2F:69:7A:39:57` |
+| Play App signing (current on device) | `CF:E4:0A:CE:9F:05:76:81:1B:89:E8:CC:01:D2:C8:B5:14:25:04:FC` |
+| Play App signing (older / previous) | `CF:50:E6:E5:17:F3:0F:A3:B8:1E:CB:B1:23:91:77:2F:69:7A:39:57` |
 
-Play SHA-256 (optional in Firebase):  
-`C1:9E:2D:D4:B8:82:E4:A7:D6:4E:9B:DB:3C:3C:5F:B6:E2:EB:92:53:FF:40:D7:6A:5F:FC:DA:31:89:14:1F:C6`
+Play SHA-256 (current, matches Digital Asset Links):  
+`8E:C1:75:1B:E9:4E:A5:70:EE:FC:7B:47:59:A5:E8:8E:09:4B:95:AD:10:4F:AA:7E:16:C6:B2:9A:5C:00:17:25`
 
-**Post-quantum cryptography key** in Play Console: ignore for Sign-In / OAuth. Not used as a Firebase fingerprint today.
+**Post-quantum cryptography key** in Play Console: still verify with `apksigner` on the installed APK; do not trust UI labels alone.
 
 ---
 
@@ -213,7 +216,7 @@ Safe maintenance: bump the google-services plugin when Firebase docs recommend (
 1. [ ] Confirm **versionCode** on the phone matches the AAB you just uploaded (uninstall + reinstall from Play).
 2. [ ] OAuth **Data Access** has `openid`, email, profile (non-sensitive).
 3. [ ] Audience **In production** → do **not** chase Test users; if **Testing** → add the Gmail as Test user.
-4. [ ] Firebase fingerprints include Play App signing SHA-1 `CF:50:E6:E5:…`.
+4. [ ] Firebase fingerprints include the **current** Play App signing SHA-1 (verify with `apksigner` on a Play-installed APK — see [`PLAY_SIGNIN_FIXED.md`](./PLAY_SIGNIN_FIXED.md); current: `CF:E4:0A:CE:…`).
 5. [ ] Google Cloud **Android** OAuth client for `com.restfit.app` has that **same** Play SHA-1 (not only Firebase UI).
 6. [ ] App uses **Web** client ID in `GoogleAuthConfig.swift` + Firebase Google provider Web SDK fields.
 7. [ ] Release minify: keep rules present; if still failing, minify off (current Stella Fit approach) and retest.
@@ -238,6 +241,7 @@ Safe maintenance: bump the google-services plugin when Firebase docs recommend (
 
 ## Related docs
 
+- [`PLAY_SIGNIN_FIXED.md`](./PLAY_SIGNIN_FIXED.md) — **Aug 21 fix:** real Play SHA was `CF:E4:…`, not `CF:50:…`
 - [`PLAY_APP_SIGNING_SHA1.md`](./PLAY_APP_SIGNING_SHA1.md) — why Play uses a different SHA-1
 - [`GOOGLE_SIGNIN_SETUP.md`](./GOOGLE_SIGNIN_SETUP.md) — Web + Android client setup
 - [`TEST_GOOGLE_SIGNIN_FROM_PLAY.md`](./TEST_GOOGLE_SIGNIN_FROM_PLAY.md) — Play vs local APK testing

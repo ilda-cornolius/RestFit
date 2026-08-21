@@ -19,9 +19,10 @@ enum GoogleAuthConfig {
     /// Debug keystore SHA-1 (for emulator / local debug installs).
     static let debugSha1 = "44:73:49:9B:15:C4:A6:B6:7D:35:4A:4B:C3:4E:40:B4:D0:17:E8:8F"
 
-    /// Play App signing SHA-1 (Play Store / closed testing installs). From Play Console → App integrity.
-    /// Must match Firebase + Google Cloud Android OAuth client for package `com.restfit.app`.
-    static let playStoreSha1 = "CF:50:E6:E5:17:F3:0F:A3:B8:1E:CB:B1:23:91:77:2F:69:7A:39:57"
+    /// Play App signing SHA-1 (Play Store / closed testing installs). From the cert on a Play-installed APK
+    /// (`apksigner verify --print-certs`). Must match Firebase + Google Cloud Android OAuth client.
+    /// Note: Play may rotate this key; `CF:50:…` was an older signing cert.
+    static let playStoreSha1 = "CF:E4:0A:CE:9F:05:76:81:1B:89:E8:CC:01:D2:C8:B5:14:25:04:FC"
 
     static let playStoreSignInHint =
         "Play Store installs use a different signing key than debug builds. In Play Console → App integrity, copy the App signing SHA-1 and add it in Firebase (Project settings → Android app → fingerprints) and Google Cloud (Credentials → Android OAuth client). Expected SHA-1: \(playStoreSha1)."
