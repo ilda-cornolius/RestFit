@@ -70,12 +70,12 @@ enum GoogleAuthService {
                 option: googleIdOption
             )
         } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
-            android.util.Log.w("RestFitAuth", "GetGoogleId cancelled: \(describe(error))")
+            android.util.Log.w("RestFitAuth", "GetGoogleId cancelled: \(error)")
         } catch {
             if !isNoCredential(error) {
                 throw mappedFailure(error)
             }
-            android.util.Log.w("RestFitAuth", "GetGoogleId no credential: \(describe(error))")
+            android.util.Log.w("RestFitAuth", "GetGoogleId no credential: \(error)")
         }
 
         try await Task.sleep(for: .milliseconds(400))
@@ -94,14 +94,14 @@ enum GoogleAuthService {
                 option: signInOption
             )
         } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
-            let message = playCancelMessage(detail: describe(error))
-            android.util.Log.e("RestFitAuth", "SignInWithGoogle cancelled: \(describe(error))")
-            throw GoogleAuthError.failed(message)
+            let detail = "\(error)"
+            android.util.Log.e("RestFitAuth", "SignInWithGoogle cancelled: \(detail)")
+            throw GoogleAuthError.failed(playCancelMessage(detail: detail))
         } catch {
             if isNoCredential(error) {
-                let message = playCancelMessage(detail: describe(error))
-                android.util.Log.e("RestFitAuth", "SignInWithGoogle no credential: \(describe(error))")
-                throw GoogleAuthError.failed(message)
+                let detail = "\(error)"
+                android.util.Log.e("RestFitAuth", "SignInWithGoogle no credential: \(detail)")
+                throw GoogleAuthError.failed(playCancelMessage(detail: detail))
             }
             throw mappedFailure(error)
         }
@@ -179,13 +179,7 @@ enum GoogleAuthService {
     }
 
     private static func randomNonce() -> String {
-        let alphabet = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_")
-        var result = ""
-        for _ in 0..<32 {
-            let index = Int.random(in: 0..<alphabet.count)
-            result.append(alphabet[index])
-        }
-        return result
+        UUID().uuidString.replacingOccurrences(of: "-", with: "")
     }
 
     private static func describe(_ error: Error) -> String {
