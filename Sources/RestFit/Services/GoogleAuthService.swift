@@ -94,12 +94,14 @@ enum GoogleAuthService {
                 option: signInOption
             )
         } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
+            let message = playCancelMessage(detail: describe(error))
             android.util.Log.e("RestFitAuth", "SignInWithGoogle cancelled: \(describe(error))")
-            throw GoogleAuthError.failed(playCancelMessage(for: error))
+            throw GoogleAuthError.failed(message)
         } catch {
             if isNoCredential(error) {
+                let message = playCancelMessage(detail: describe(error))
                 android.util.Log.e("RestFitAuth", "SignInWithGoogle no credential: \(describe(error))")
-                throw GoogleAuthError.failed(playCancelMessage(for: error))
+                throw GoogleAuthError.failed(message)
             }
             throw mappedFailure(error)
         }
@@ -177,23 +179,21 @@ enum GoogleAuthService {
     }
 
     private static func randomNonce() -> String {
-        var bytes: [UInt8] = []
-        for _ in 0..<16 {
-            bytes.append(UInt8.random(in: 0...255))
+        let alphabet = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_")
+        var result = ""
+        for _ in 0..<32 {
+            let index = Int.random(in: 0..<alphabet.count)
+            result.append(alphabet[index])
         }
-        return Data(bytes).base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
+        return result
     }
 
     private static func describe(_ error: Error) -> String {
-        "\(type(of: error)): \(error) | \(error.localizedDescription)"
+        "\(error) | \(error.localizedDescription)"
     }
 
     /// Play often reports SHA / reauth failures as "user cancelled".
-    private static func playCancelMessage(for error: Error) -> String {
-        let detail = describe(error)
+    private static func playCancelMessage(detail: String) -> String {
         let lower = detail.lowercased()
         if lower.contains("16") || lower.contains("reauth") || lower.contains("developer") || lower.contains("10:") {
             return "Google blocked Play Sign-In (config). \(GoogleAuthConfig.playStoreSignInHint) Detail: \(String(detail.prefix(160)))"
@@ -255,7 +255,7 @@ enum GoogleAuthService {
                 "Google rejected the sign-in. Confirm Google is enabled in Firebase Authentication and the Web client ID matches your Firebase project."
             )
         }
-        return .failed(playCancelMessage(for: error))
+        return .failed(playCancelMessage(detail: text))
     }
     #endif
 }
