@@ -163,6 +163,34 @@ Logcat tag: `RestFitAuth`.
 
 ---
 
+## 8. Fresh `google-services.json` can change the Web client ID
+
+### What happened (Aug 2026)
+Downloaded `google-services-6.json` from Firebase after fingerprint/OAuth edits.
+
+| Item | Old repo file | New download |
+|------|---------------|--------------|
+| Play Android client (`…07pq…`, SHA `cf50e6…`) | Present | Present |
+| Upload Android client (`…57bh…`) | Present | **Missing** |
+| Debug Android client (`…5kbs…`) | Present | **Missing** |
+| Web client (type 3) | `…ga71…` | **`…d6jdj…` (new)** |
+
+### Why this breaks Play Sign-In
+App `GoogleAuthConfig.webClientID` must match the **Web** client Firebase/Google use for ID tokens. If the JSON (and Firebase Google provider) move to a new Web client but the app still requests tokens with the old ID, account picker can succeed and then Sign-In fails / “cancels.”
+
+### Fix
+1. Install the new `google-services.json` under `Android/app/`.
+2. Update `GoogleAuthConfig.webClientID` to the new type-3 client ID.
+3. Firebase → Authentication → Sign-in method → Google → Web SDK config: paste the **same** new Web client ID + its secret from Google Cloud.
+4. **Re-merge** debug + upload Android `oauth_client` entries if the download dropped them (or re-add those SHA-1s in Firebase and re-download).
+5. Ship a **new Play AAB** — JSON + webClientID changes require a rebuild.
+
+Current Web client ID after this update:
+
+`611638882841-d6jdj0ecjrhfg35gola6h74tep4psug0.apps.googleusercontent.com`
+
+---
+
 ## Quick checklist (Play Sign-In broken, debug OK)
 
 1. [ ] Confirm **versionCode** on the phone matches the AAB you just uploaded (uninstall + reinstall from Play).

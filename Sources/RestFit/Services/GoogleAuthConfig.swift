@@ -5,7 +5,7 @@ import Foundation
 enum GoogleAuthConfig {
     /// OAuth 2.0 **Web application** client ID (used as server client ID for Google ID tokens).
     /// Example: `123456789-abcdef.apps.googleusercontent.com`
-    static let webClientID = "611638882841-ga71hc4gb59tri26bnvn12unauc8uj4v.apps.googleusercontent.com"
+    static let webClientID = "611638882841-d6jdj0ecjrhfg35gola6h74tep4psug0.apps.googleusercontent.com"
 
     static var isConfigured: Bool {
         !webClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
