@@ -1,6 +1,6 @@
 # Firebase setup (email / password auth)
 
-Stella Fit uses **Firebase Authentication** for email + password sign-in and registration.
+Stella Fit uses **Firebase Authentication** for email + password sign-in and registration, plus Google Sign-In via Credential Manager → Firebase Auth credential.
 
 ## 1. Create a Firebase project
 
@@ -14,22 +14,37 @@ Stella Fit uses **Firebase Authentication** for email + password sign-in and reg
 
 `Android/app/google-services.json`
 
-(The repo has a placeholder — overwrite it with your real download.)
+(The repo has a placeholder — overwrite it with your real download. If the download drops debug/upload OAuth clients or changes the Web client ID, merge carefully — see [`GOOGLE_SIGNIN_LESSONS_LEARNED.md`](./GOOGLE_SIGNIN_LESSONS_LEARNED.md) §8.)
 
 ## 2. Enable Email/Password
 
 Firebase Console → **Authentication** → **Sign-in method** → enable **Email/Password**.
 
-## 3. Optional: Google provider in Firebase
+## 3. Google provider in Firebase
 
-You can also enable **Google** under Sign-in method. The app’s Google button currently uses Google Identity / Credential Manager; email accounts always go through Firebase.
+Enable **Google** under Sign-in method. Set **Web SDK configuration** to the same **Web** OAuth client ID/secret used in `GoogleAuthConfig.webClientID` (must match `google-services.json` type-3 client).
 
-## 4. Rebuild
+## 4. Gradle / SDK — already set up for Skip
+
+Firebase’s “Add Firebase SDK” wizard shows project-level + `firebase-bom` steps for a normal Android app.
+
+**Stella Fit already has this covered differently:**
+
+| Firebase wizard step | Stella Fit |
+|----------------------|------------|
+| `google-services` Gradle plugin | `Android/app/build.gradle.kts` — `id("com.google.gms.google-services")` (currently **4.5.0**) |
+| `google-services.json` | `Android/app/google-services.json` |
+| `firebase-bom` + `firebase-auth` / Analytics | **SkipFirebaseAuth** / **SkipFirebaseCore** via `Package.swift` — do **not** also add BoM Auth deps in the app Gradle file (version conflicts) |
+| `FirebaseApp.configure()` | `FirebaseAuthService.configureIfNeeded()` / app launch |
+
+You only need to keep `google-services.json` current and the plugin applied. Re-running the full Firebase BoM snippet on top of Skip is usually unnecessary and can break the build.
+
+## 5. Rebuild
 
 ```bash
 cd /Users/ilda/restfit
 swift build
-cd Android && gradle :app:assembleDebug
+skip export --release --android --no-ios
 ```
 
 ## Play Console app access

@@ -191,6 +191,23 @@ Current Web client ID after this update:
 
 ---
 
+## 9. Firebase “Add SDK” Gradle wizard vs Skip
+
+### Lesson
+Firebase Console’s **Add Firebase SDK** instructions (project-level plugin + `firebase-bom` + `firebase-analytics` / Auth) are for a stock Android app.
+
+Stella Fit already:
+
+- Applies `com.google.gms.google-services` in `Android/app/build.gradle.kts`
+- Ships `Android/app/google-services.json`
+- Pulls Auth through **SkipFirebaseAuth** / **SkipFirebaseCore** (`Package.swift`)
+
+**Do not** paste the full BoM Auth dependency block into the app module on top of Skip — it fights Skip’s Firebase versions.
+
+Safe maintenance: bump the google-services plugin when Firebase docs recommend (e.g. `4.5.0`), refresh `google-services.json`, keep `webClientID` in sync.
+
+---
+
 ## Quick checklist (Play Sign-In broken, debug OK)
 
 1. [ ] Confirm **versionCode** on the phone matches the AAB you just uploaded (uninstall + reinstall from Play).
