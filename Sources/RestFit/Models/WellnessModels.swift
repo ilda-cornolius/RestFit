@@ -576,15 +576,22 @@ struct StrengthExercise: Identifiable, Codable, Hashable {
     var weightKg: Double
     var notes: String
     var includeWarmUp: Bool
+    /// False for bodyweight moves (pull-ups, dips, push-ups) — log sets × reps only.
+    var tracksWeight: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, sets, reps, weightKg, notes, includeWarmUp, tracksWeight
+    }
 
     init(
         id: UUID = UUID(),
         name: String = "New lift",
         sets: Int = 3,
-        reps: Int = 8,
+        reps: Int = 5,
         weightKg: Double = 61.2,
         notes: String = "",
-        includeWarmUp: Bool = true
+        includeWarmUp: Bool = true,
+        tracksWeight: Bool = true
     ) {
         self.id = id
         self.name = name
@@ -593,11 +600,24 @@ struct StrengthExercise: Identifiable, Codable, Hashable {
         self.weightKg = weightKg
         self.notes = notes
         self.includeWarmUp = includeWarmUp
+        self.tracksWeight = tracksWeight
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Lift"
+        sets = try container.decodeIfPresent(Int.self, forKey: .sets) ?? 3
+        reps = try container.decodeIfPresent(Int.self, forKey: .reps) ?? 5
+        weightKg = try container.decodeIfPresent(Double.self, forKey: .weightKg) ?? 0.0
+        notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        includeWarmUp = try container.decodeIfPresent(Bool.self, forKey: .includeWarmUp) ?? true
+        tracksWeight = try container.decodeIfPresent(Bool.self, forKey: .tracksWeight) ?? true
     }
 
     /// Auto-calculated warm-up progression: 0%, 50%, 75% of working weight.
     var warmUpProgression: [(weightKg: Double, reps: Int)] {
-        guard includeWarmUp else { return [] }
+        guard includeWarmUp, tracksWeight else { return [] }
         return [
             (0.0,             10),
             (weightKg * 0.50, 5),

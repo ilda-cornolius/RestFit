@@ -16,9 +16,9 @@ private struct MintStepperButton: View {
             ZStack {
                 Circle()
                     .fill(RestFitTheme.mint)
-                    .frame(width: 30, height: 30)
+                    .frame(width: 44, height: 44)
                 Text(symbol)
-                    .font(.title3.weight(.bold))
+                    .font(.title2.weight(.bold))
                     .foregroundStyle(RestFitTheme.canvas)
             }
         }
@@ -37,11 +37,11 @@ struct StrengthPlanView: View {
     @State private var selectedDate = Date()
     @State private var activityChartMode: WorkoutActivityChartMode = .overview
     @State private var activeWorkoutDay: Weekday?
-    @State private var sessionDetailsVisible = false
     @State private var draftLiftName = ""
     @State private var draftLiftSets = 3
-    @State private var draftLiftReps = 8
+    @State private var draftLiftReps = 5
     @State private var draftLiftWeight = ""
+    @State private var draftTracksWeight = true
 
     var body: some View {
         ScrollView {
@@ -87,6 +87,7 @@ struct StrengthPlanView: View {
             visibleMonth = Date()
             customFocus = store.strengthDay(for: selectedDay).focus
             resetDraftLift()
+            restoreWorkoutSessionChrome()
         }
         .sheet(isPresented: $showSettings) {
             WorkoutSettingsView()
@@ -143,24 +144,26 @@ struct StrengthPlanView: View {
     }
 
     private var activeSessionPlan: StrengthDayPlan {
-        store.strengthDay(for: activeWorkoutDay ?? selectedDay)
+        store.strengthDay(for: store.activeWorkoutWeekday ?? activeWorkoutDay ?? selectedDay)
+    }
+
+    /// Tab switches and app resume recreate this view, which resets local @State.
+    /// The store still has the live session (timer, kind, weekday) — bring the lifts back.
+    private func restoreWorkoutSessionChrome() {
+        guard store.isWorkingOut else { return }
+        activeWorkoutDay = store.activeWorkoutWeekday ?? store.todayWeekday
     }
 
     private func startWorkoutAnimated(_ kind: WorkoutKind) {
         activeWorkoutDay = selectedDay
-        sessionDetailsVisible = false
         withAnimation(AppLayout.workoutSessionAnimation) {
             store.startWorkout(kind, weekday: selectedDay)
-        }
-        withAnimation(AppLayout.workoutSessionAnimation.delay(0.12)) {
-            sessionDetailsVisible = true
         }
     }
 
     private func cancelWorkoutAnimated() {
         withAnimation(AppLayout.workoutSessionAnimation) {
             store.cancelWorkout()
-            sessionDetailsVisible = false
             activeWorkoutDay = nil
         }
     }
@@ -168,7 +171,6 @@ struct StrengthPlanView: View {
     private func finishWorkoutAnimated() {
         withAnimation(AppLayout.workoutSessionAnimation) {
             store.finishWorkout()
-            sessionDetailsVisible = false
             activeWorkoutDay = nil
         }
     }
@@ -349,7 +351,7 @@ struct StrengthPlanView: View {
                 title: "Lift name",
                 text: $draftLiftName,
                 mode: AeroKeyboardMode.text,
-                placeholder: "Bench press, Squat, Row...",
+                placeholder: "Pull-ups, Bench, Squat...",
                 minHeight: 48.0,
                 trailingLabel: "Edit"
             )
@@ -364,17 +366,23 @@ struct StrengthPlanView: View {
                 inlineLiftStepper(title: "Reps", value: draftLiftReps) {
                     draftLiftReps = max(1, draftLiftReps - 1)
                 } onIncrement: {
-                    draftLiftReps = min(30, draftLiftReps + 1)
+                    draftLiftReps = min(50, draftLiftReps + 1)
                 }
             }
 
-            AeroTextField(
-                title: "Weight in \(store.weightUnitLabel)",
-                text: $draftLiftWeight,
-                mode: AeroKeyboardMode.decimal,
-                placeholder: store.usesPounds ? "45" : "20",
-                minHeight: 48.0
-            )
+            liftTrackingModeBar(tracksWeight: draftTracksWeight) { tracksWeight in
+                draftTracksWeight = tracksWeight
+            }
+
+            if draftTracksWeight {
+                AeroTextField(
+                    title: "Weight in \(store.weightUnitLabel)",
+                    text: $draftLiftWeight,
+                    mode: AeroKeyboardMode.decimal,
+                    placeholder: store.usesPounds ? "45" : "20",
+                    minHeight: 48.0
+                )
+            }
 
             Button {
                 addDraftLift()
@@ -408,18 +416,19 @@ struct StrengthPlanView: View {
             Text(title)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(RestFitTheme.faint)
-            HStack {
+            HStack(spacing: 12) {
                 MintStepperButton(symbol: "−", action: onDecrement)
                 Text("\(value)")
-                    .font(.body.weight(.bold))
+                    .font(.title3.weight(.bold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
                 MintStepperButton(symbol: "+", action: onIncrement)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
         .background(RestFitTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
@@ -427,14 +436,15 @@ struct StrengthPlanView: View {
     private func resetDraftLift() {
         draftLiftName = ""
         draftLiftSets = 3
-        draftLiftReps = 8
+        draftLiftReps = 5
         draftLiftWeight = store.usesPounds ? "45" : "20"
+        draftTracksWeight = true
     }
 
     private func addDraftLift() {
         keyboard.dismiss(force: true)
         let parsed = Double(draftLiftWeight) ?? (store.usesPounds ? 45.0 : 20.0)
-        let weightKg = store.kilogramsFromDisplay(max(0.0, parsed))
+        let weightKg = draftTracksWeight ? store.kilogramsFromDisplay(max(0.0, parsed)) : 0.0
         let trimmed = draftLiftName.trimmingCharacters(in: .whitespacesAndNewlines)
         store.addStrengthExercise(
             selectedDay,
@@ -443,14 +453,46 @@ struct StrengthPlanView: View {
                 sets: draftLiftSets,
                 reps: draftLiftReps,
                 weightKg: weightKg,
-                includeWarmUp: true
+                includeWarmUp: draftTracksWeight,
+                tracksWeight: draftTracksWeight
             )
         )
         resetDraftLift()
     }
 
-    private func updateExercise(_ exercise: StrengthExercise) {
-        store.updateStrengthExercise(selectedDay, exercise: exercise)
+    private func updateExercise(_ exercise: StrengthExercise, weekday: Weekday? = nil) {
+        store.updateStrengthExercise(weekday ?? selectedDay, exercise: exercise)
+    }
+
+    private func liftTrackingModeBar(tracksWeight: Bool, onChange: @escaping (Bool) -> Void) -> some View {
+        HStack(spacing: 0) {
+            liftTrackingChip("Weight", selected: tracksWeight) {
+                onChange(true)
+            }
+            liftTrackingChip("Reps only", selected: !tracksWeight) {
+                onChange(false)
+            }
+        }
+        .padding(4)
+        .background(Color.white.opacity(0.08))
+        .clipShape(Capsule())
+    }
+
+    private func liftTrackingChip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(selected ? RestFitTheme.canvas : .white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(selected ? RestFitTheme.mint : Color.clear)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var sessionEditDay: Weekday {
+        store.activeWorkoutWeekday ?? activeWorkoutDay ?? selectedDay
     }
 
     private var startCard: some View {
@@ -615,6 +657,8 @@ struct StrengthPlanView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
 
+                WorkoutRestMiniGame()
+
                 Group {
                     if isStrength {
                         VStack(alignment: .leading, spacing: 12) {
@@ -649,8 +693,6 @@ struct StrengthPlanView: View {
                         }
                     }
                 }
-                .opacity(sessionDetailsVisible ? 1.0 : 0.0)
-                .offset(y: sessionDetailsVisible ? 0.0 : 10.0)
 
                 HStack(spacing: 12) {
                     Button {
@@ -971,11 +1013,22 @@ struct StrengthPlanView: View {
                     updateExercise(updated)
                 } onIncrement: {
                     var updated = current
-                    updated.reps = min(30, current.reps + 1)
+                    updated.reps = min(50, current.reps + 1)
                     updateExercise(updated)
                 }
             }
 
+            liftTrackingModeBar(tracksWeight: current.tracksWeight) { tracksWeight in
+                var updated = current
+                updated.tracksWeight = tracksWeight
+                if !tracksWeight {
+                    updated.includeWarmUp = false
+                    updated.weightKg = 0.0
+                }
+                updateExercise(updated)
+            }
+
+            if current.tracksWeight {
             HStack {
                 Text("Weight")
                     .font(.caption)
@@ -1011,6 +1064,7 @@ struct StrengthPlanView: View {
                 .labelsHidden()
                 .tint(RestFitTheme.mint)
             }
+            }
         }
         .padding(12)
         .background(RestFitTheme.card)
@@ -1022,87 +1076,108 @@ struct StrengthPlanView: View {
         let workingDone  = store.completedWorkingSets(for: exercise)
         let allDone      = store.isStrengthExerciseDone(exercise)
         let warmUps      = exercise.warmUpProgression
+        let live = store.strengthDay(for: sessionEditDay).exercises.first { $0.id == exercise.id } ?? exercise
 
-        return Button {
-            store.tapStrengthSet(for: exercise)
-        } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 12) {
-                    Image(systemName: allDone ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
-                        .foregroundStyle(allDone ? RestFitTheme.mint : RestFitTheme.faint)
+        return VStack(alignment: .leading, spacing: 10) {
+            Button {
+                store.tapStrengthSet(for: live)
+            } label: {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 12) {
+                        Image(systemName: allDone ? "checkmark.circle.fill" : "circle")
+                            .font(.title2)
+                            .foregroundStyle(allDone ? RestFitTheme.mint : RestFitTheme.faint)
+                            .frame(width: 36, height: 36)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(exercise.name)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(allDone ? RestFitTheme.muted : .white)
-                        Text("\(exercise.reps) reps @ \(store.liftWeightLabel(exercise.weightKg))")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(RestFitTheme.mint)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(live.name)
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(allDone ? RestFitTheme.muted : .white)
+                            Text(
+                                live.tracksWeight
+                                    ? "\(live.reps) reps @ \(store.liftWeightLabel(live.weightKg))"
+                                    : "\(live.reps) reps"
+                            )
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(RestFitTheme.mint)
+                        }
+
+                        Spacer()
+
+                        Text("\(workingDone)/\(live.sets)")
+                            .font(.body.weight(.bold))
+                            .foregroundStyle(workingDone > 0 ? RestFitTheme.mint : RestFitTheme.faint)
                     }
+                    .frame(minHeight: 52)
 
-                    Spacer()
+                    if !warmUps.isEmpty {
+                        Divider().overlay(RestFitTheme.line)
 
-                    Text("\(workingDone)/\(exercise.sets)")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(workingDone > 0 ? RestFitTheme.mint : RestFitTheme.faint)
-                }
-
-                if !warmUps.isEmpty {
-                    Divider().overlay(RestFitTheme.line)
-
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Warm-up")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(RestFitTheme.faint)
-
-                        HStack(spacing: 6) {
-                            ForEach(Array(warmUps.enumerated()), id: \.offset) { index, warmUp in
-                                let done = totalTapped > index
-                                VStack(spacing: 3) {
-                                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                                        .font(.caption)
-                                        .foregroundStyle(done ? RestFitTheme.mint : RestFitTheme.faint)
-                                    Text(store.liftWeightLabel(warmUp.weightKg))
-                                        .font(.system(size: 9, weight: .semibold))
-                                        .foregroundStyle(done ? RestFitTheme.muted : .white)
-                                    Text("\(warmUp.reps)r")
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(RestFitTheme.faint)
-                                }
-                                .frame(maxWidth: .infinity)
-                            }
-
-                            Image(systemName: "arrow.right")
-                                .font(.caption2)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Warm-up")
+                                .font(.caption2.weight(.semibold))
                                 .foregroundStyle(RestFitTheme.faint)
 
-                            ForEach(0..<exercise.sets, id: \.self) { index in
-                                let done = workingDone > index
-                                VStack(spacing: 3) {
-                                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                                        .font(.caption)
-                                        .foregroundStyle(done ? RestFitTheme.mint : RestFitTheme.faint)
-                                    Text(store.liftWeightLabel(exercise.weightKg))
-                                        .font(.system(size: 9, weight: .semibold))
-                                        .foregroundStyle(done ? RestFitTheme.muted : .white)
-                                    Text("\(exercise.reps)r")
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(RestFitTheme.faint)
+                            HStack(spacing: 6) {
+                                ForEach(Array(warmUps.enumerated()), id: \.offset) { index, warmUp in
+                                    let done = totalTapped > index
+                                    VStack(spacing: 3) {
+                                        Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                                            .font(.caption)
+                                            .foregroundStyle(done ? RestFitTheme.mint : RestFitTheme.faint)
+                                        Text(store.liftWeightLabel(warmUp.weightKg))
+                                            .font(.system(size: 9, weight: .semibold))
+                                            .foregroundStyle(done ? RestFitTheme.muted : .white)
+                                        Text("\(warmUp.reps)r")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(RestFitTheme.faint)
+                                    }
+                                    .frame(maxWidth: .infinity)
                                 }
-                                .frame(maxWidth: .infinity)
+
+                                Image(systemName: "arrow.right")
+                                    .font(.caption2)
+                                    .foregroundStyle(RestFitTheme.faint)
+
+                                ForEach(0..<live.sets, id: \.self) { index in
+                                    let done = workingDone > index
+                                    VStack(spacing: 3) {
+                                        Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                                            .font(.caption)
+                                            .foregroundStyle(done ? RestFitTheme.mint : RestFitTheme.faint)
+                                        if live.tracksWeight {
+                                            Text(store.liftWeightLabel(live.weightKg))
+                                                .font(.system(size: 9, weight: .semibold))
+                                                .foregroundStyle(done ? RestFitTheme.muted : .white)
+                                        }
+                                        Text("\(live.reps)r")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(RestFitTheme.faint)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
                             }
                         }
+                    } else {
+                        setProgressDots(completed: workingDone, total: live.sets)
                     }
-                } else {
-                    setProgressDots(completed: workingDone, total: exercise.sets)
                 }
             }
-            .padding(12)
-            .background(RestFitTheme.card)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .buttonStyle(.plain)
+
+            liftTrackingModeBar(tracksWeight: live.tracksWeight) { tracksWeight in
+                var updated = live
+                updated.tracksWeight = tracksWeight
+                if !tracksWeight {
+                    updated.includeWarmUp = false
+                    updated.weightKg = 0.0
+                }
+                updateExercise(updated, weekday: sessionEditDay)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(12)
+        .background(RestFitTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     @ViewBuilder
@@ -1111,7 +1186,7 @@ struct StrengthPlanView: View {
             ForEach(Array(0..<total), id: \.self) { index in
                 Circle()
                     .fill(index < completed ? RestFitTheme.mint : RestFitTheme.line)
-                    .frame(width: 10, height: 10)
+                    .frame(width: 14, height: 14)
             }
             Spacer(minLength: 0)
         }

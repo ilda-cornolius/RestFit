@@ -6,7 +6,7 @@ struct TodayWorkoutCard: View {
     @State private var customFocus = ""
     @State private var liftName = ""
     @State private var liftSets = 3
-    @State private var liftReps = 8
+    @State private var liftReps = 5
     @State private var liftWeightText = ""
     @State private var walkMinutes = 30
     @State private var activityName = ""

@@ -1241,7 +1241,7 @@ import OSLog
                         name: exercise.name,
                         sets: exercise.sets,
                         reps: exercise.reps,
-                        weightKg: exercise.weightKg
+                        weightKg: exercise.tracksWeight ? exercise.weightKg : 0.0
                     )
                 }
             } else {
@@ -1252,7 +1252,7 @@ import OSLog
                         name: exercise.name,
                         sets: doneSets,
                         reps: exercise.reps,
-                        weightKg: exercise.weightKg
+                        weightKg: exercise.tracksWeight ? exercise.weightKg : 0.0
                     )
                 }
             }
@@ -1374,8 +1374,10 @@ import OSLog
     func activityDisplayLabel(_ activity: DailyWorkoutActivity) -> String {
         switch activity.kind {
         case .lift:
-            let weight = liftWeightLabel(activity.weightKg)
-            return "\(activity.name) \(activity.sets)×\(activity.reps) @ \(weight)"
+            if activity.weightKg > 0 {
+                return "\(activity.name) \(activity.sets)×\(activity.reps) @ \(liftWeightLabel(activity.weightKg))"
+            }
+            return "\(activity.name) \(activity.sets)×\(activity.reps)"
         case .walk:
             if activity.minutes > 0 {
                 return "Walked \(activity.minutes) min"
@@ -1750,7 +1752,10 @@ import OSLog
     }
 
     func liftPrescription(_ exercise: StrengthExercise) -> String {
-        "\(exercise.sets)×\(exercise.reps) @ \(liftWeightLabel(exercise.weightKg))"
+        if exercise.tracksWeight {
+            return "\(exercise.sets)×\(exercise.reps) @ \(liftWeightLabel(exercise.weightKg))"
+        }
+        return "\(exercise.sets)×\(exercise.reps) reps"
     }
 
     func logWorkout(kind: WorkoutKind, minutes: Int, notes: String = "") {
