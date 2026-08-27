@@ -5,8 +5,8 @@ struct TodayWorkoutCard: View {
     private var keyboard: AeroKeyboardController { AeroKeyboardController.shared }
     @State private var customFocus = ""
     @State private var liftName = ""
-    @State private var liftSets = 3
-    @State private var liftReps = 5
+    @State private var liftSets: Int = 3
+    @State private var liftReps: Int = 5
     @State private var liftWeightText = ""
     @State private var walkMinutes = 30
     @State private var activityName = ""
@@ -172,6 +172,8 @@ struct TodayWorkoutCard: View {
                     weightKg: store.kilogramsFromDisplay(weight)
                 )
                 liftName = ""
+                liftSets = 3
+                liftReps = 5
                 liftWeightText = store.usesPounds ? "45" : "20"
             } label: {
                 Text("Add lift")

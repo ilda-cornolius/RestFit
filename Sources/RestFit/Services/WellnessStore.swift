@@ -156,6 +156,7 @@ import OSLog
         dismissedWeightPromptDayKeys = Set(loaded.dismissedWeightPromptDayKeys ?? [])
 
         normalizeTodayWorkoutPick()
+        migrateDefaultLiftSchemeIfNeeded()
 
         if profile.hasCompletedOnboarding, profile.firstAppUseAt == nil {
             profile.firstAppUseAt = .now
@@ -1576,6 +1577,38 @@ import OSLog
             finalizeWorkoutDay(dayKey: pick.dayKey, pick: pick, passive: true)
             todayWorkoutPick = nil
         }
+    }
+
+    /// Saved starter week was 3×8 / 3×12; add-lift also used to start at 8 reps.
+    private func migrateDefaultLiftSchemeIfNeeded() {
+        guard workoutSettings.liftSchemeVersion < 1 else { return }
+        let starterNames = [
+            "Bench press", "Overhead press", "Tricep pushdown",
+            "Barbell row", "Lat pulldown", "Dumbbell curl",
+            "Back squat", "Romanian deadlift", "Leg press",
+            "Incline bench", "Seated row", "Lateral raise"
+        ]
+        var plan = strengthPlan
+        var updatedDays: [StrengthDayPlan] = []
+        for day in plan.days {
+            var updatedDay = day
+            var updatedExercises: [StrengthExercise] = []
+            for exercise in day.exercises {
+                var next = exercise
+                let isStarter = starterNames.contains(exercise.name)
+                let isOldAddDefault = exercise.sets == 3 && exercise.reps == 8
+                if isStarter || isOldAddDefault {
+                    next.sets = 3
+                    next.reps = 5
+                }
+                updatedExercises.append(next)
+            }
+            updatedDay.exercises = updatedExercises
+            updatedDays.append(updatedDay)
+        }
+        plan.days = updatedDays
+        strengthPlan = plan
+        workoutSettings.liftSchemeVersion = 1
     }
 
     @MainActor

@@ -16,9 +16,9 @@ private struct MintStepperButton: View {
             ZStack {
                 Circle()
                     .fill(RestFitTheme.mint)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 28.0, height: 28.0)
                 Text(symbol)
-                    .font(.title2.weight(.bold))
+                    .font(.body.weight(.bold))
                     .foregroundStyle(RestFitTheme.canvas)
             }
         }
@@ -38,15 +38,19 @@ struct StrengthPlanView: View {
     @State private var activityChartMode: WorkoutActivityChartMode = .overview
     @State private var activeWorkoutDay: Weekday?
     @State private var draftLiftName = ""
-    @State private var draftLiftSets = 3
-    @State private var draftLiftReps = 5
+    @State private var draftLiftSets: Int = 3
+    @State private var draftLiftReps: Int = 5
     @State private var draftLiftWeight = ""
     @State private var draftTracksWeight = true
+    @State private var showAddLift = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 AppHeader(section: "Workout", onProfile: onProfile)
+
+                weekHeader
+                    .padding(.horizontal, 24)
 
                 HStack {
                     Spacer()
@@ -116,7 +120,7 @@ struct StrengthPlanView: View {
                 )
                 .padding(.horizontal, 24)
             } else {
-                weekCard
+                weekDayChips
                     .padding(.horizontal, 24)
             }
 
@@ -216,36 +220,38 @@ struct StrengthPlanView: View {
         selectedDay = day.weekday
         selectedDate = day.date
         customFocus = store.strengthDay(for: day.weekday).focus
+        showAddLift = false
+        keyboard.dismiss(force: true)
     }
 
-    private var weekCard: some View {
-        SurfaceCard {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("This week")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.white)
-                        Text(WorkoutCalendar.compactDateTimeTitle(store.now))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(RestFitTheme.mint)
-                    }
-                    Spacer()
-                    Text(store.workoutSettings.weekRangeLabel)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(RestFitTheme.muted)
+    private var weekHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("This week")
+                        .font(.title.weight(.bold))
+                        .foregroundStyle(.white)
+                    Text(WorkoutCalendar.compactDateTimeTitle(store.now))
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(RestFitTheme.mint)
                 }
-                Text(store.workoutSettings.trainingNotes.isEmpty
-                     ? "Set each day as Rest, Cardio, or Workout."
-                     : store.workoutSettings.trainingNotes)
-                    .font(.caption)
+                Spacer()
+                Text(store.workoutSettings.weekRangeLabel)
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(RestFitTheme.muted)
+            }
+            Text(store.workoutSettings.trainingNotes.isEmpty
+                 ? "Set each day as Rest, Cardio, or Workout."
+                 : store.workoutSettings.trainingNotes)
+                .font(.caption)
+                .foregroundStyle(RestFitTheme.muted)
+        }
+    }
 
-                HStack(spacing: 6) {
-                    ForEach(store.weekDayOrder) { day in
-                        dayChip(day)
-                    }
-                }
+    private var weekDayChips: some View {
+        HStack(spacing: 6) {
+            ForEach(store.weekDayOrder) { day in
+                dayChip(day)
             }
         }
     }
@@ -254,14 +260,14 @@ struct StrengthPlanView: View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(selectedPlan.weekday.title)
-                            .font(.title3.weight(.semibold))
+                            .font(.title.weight(.bold))
                             .foregroundStyle(.white)
                         Text(store.usesWorkoutCalendar
                              ? WorkoutCalendar.dayTitle(selectedDate)
                              : selectedPlan.dayTypeLabel)
-                            .font(.caption)
+                            .font(.title3.weight(.bold))
                             .foregroundStyle(RestFitTheme.mint)
                     }
                     Spacer()
@@ -324,7 +330,7 @@ struct StrengthPlanView: View {
                     }
 
                     if selectedPlan.exercises.isEmpty {
-                        Text("No lifts yet. Add your first movement below.")
+                        Text("No lifts yet. Tap Add lift to start.")
                             .font(.caption)
                             .foregroundStyle(RestFitTheme.muted)
                     } else {
@@ -335,7 +341,23 @@ struct StrengthPlanView: View {
                         }
                     }
 
-                    inlineAddLiftSection
+                    if showAddLift {
+                        inlineAddLiftSection
+                    } else {
+                        Button {
+                            resetDraftLift()
+                            showAddLift = true
+                        } label: {
+                            Text("Add lift")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(RestFitTheme.canvas)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(RestFitTheme.mint)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
         }
@@ -343,9 +365,20 @@ struct StrengthPlanView: View {
 
     private var inlineAddLiftSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Add lift")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(RestFitTheme.muted)
+            HStack {
+                Text("Add lift")
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(.white)
+                Spacer()
+                Button("Cancel") {
+                    keyboard.dismiss(force: true)
+                    resetDraftLift()
+                    showAddLift = false
+                }
+                .font(.body.weight(.semibold))
+                .foregroundStyle(RestFitTheme.mint)
+                .buttonStyle(.plain)
+            }
 
             AeroTextField(
                 title: "Lift name",
@@ -357,17 +390,8 @@ struct StrengthPlanView: View {
             )
 
             HStack(spacing: 10) {
-                inlineLiftStepper(title: "Sets", value: draftLiftSets) {
-                    draftLiftSets = max(1, draftLiftSets - 1)
-                } onIncrement: {
-                    draftLiftSets = min(10, draftLiftSets + 1)
-                }
-
-                inlineLiftStepper(title: "Reps", value: draftLiftReps) {
-                    draftLiftReps = max(1, draftLiftReps - 1)
-                } onIncrement: {
-                    draftLiftReps = min(50, draftLiftReps + 1)
-                }
+                inlineLiftStepper(title: "Sets", value: $draftLiftSets, minimum: 1, maximum: 10)
+                inlineLiftStepper(title: "Reps", value: $draftLiftReps, minimum: 1, maximum: 50)
             }
 
             liftTrackingModeBar(tracksWeight: draftTracksWeight) { tracksWeight in
@@ -375,13 +399,34 @@ struct StrengthPlanView: View {
             }
 
             if draftTracksWeight {
-                AeroTextField(
-                    title: "Weight in \(store.weightUnitLabel)",
-                    text: $draftLiftWeight,
-                    mode: AeroKeyboardMode.decimal,
-                    placeholder: store.usesPounds ? "45" : "20",
-                    minHeight: 48.0
-                )
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Weight")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(.white)
+                    HStack(spacing: 8) {
+                        MintStepperButton(symbol: "−", action: {
+                            nudgeDraftWeight(-store.liftWeightStep)
+                        })
+                        typedNumberButton(
+                            text: draftLiftWeight,
+                            fieldTitle: "Add weight",
+                            mode: AeroKeyboardMode.decimal
+                        ) { typed in
+                            draftLiftWeight = typed
+                        }
+                        MintStepperButton(symbol: "+", action: {
+                            nudgeDraftWeight(store.liftWeightStep)
+                        })
+                        Text(store.weightUnitLabel)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(RestFitTheme.muted)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+                .background(RestFitTheme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
             Button {
@@ -404,26 +449,36 @@ struct StrengthPlanView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(RestFitTheme.line, lineWidth: 1)
         )
+        .onAppear {
+            resetDraftLift()
+        }
     }
 
     private func inlineLiftStepper(
         title: String,
-        value: Int,
-        onDecrement: @escaping () -> Void,
-        onIncrement: @escaping () -> Void
+        value: Binding<Int>,
+        minimum: Int,
+        maximum: Int
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(RestFitTheme.faint)
-            HStack(spacing: 12) {
-                MintStepperButton(symbol: "−", action: onDecrement)
-                Text("\(value)")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 44)
-                MintStepperButton(symbol: "+", action: onIncrement)
+                .font(.body.weight(.bold))
+                .foregroundStyle(.white)
+            HStack(spacing: 8) {
+                MintStepperButton(symbol: "−", action: {
+                    value.wrappedValue = max(minimum, value.wrappedValue - 1)
+                })
+                typedNumberButton(
+                    text: "\(value.wrappedValue)",
+                    fieldTitle: "Add \(title)",
+                    mode: AeroKeyboardMode.number
+                ) { typed in
+                    guard let parsed = Int(typed) else { return }
+                    value.wrappedValue = min(maximum, max(minimum, parsed))
+                }
+                MintStepperButton(symbol: "+", action: {
+                    value.wrappedValue = min(maximum, value.wrappedValue + 1)
+                })
             }
         }
         .frame(maxWidth: .infinity)
@@ -433,12 +488,142 @@ struct StrengthPlanView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
+    private func planLiftStepper(
+        title: String,
+        value: Int,
+        fieldTitle: String,
+        minimum: Int,
+        maximum: Int,
+        onChange: @escaping (Int) -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.body.weight(.bold))
+                .foregroundStyle(.white)
+            HStack(spacing: 8) {
+                MintStepperButton(symbol: "−", action: {
+                    onChange(max(minimum, value - 1))
+                })
+                typedNumberButton(
+                    text: "\(value)",
+                    fieldTitle: fieldTitle,
+                    mode: AeroKeyboardMode.number
+                ) { typed in
+                    guard let parsed = Int(typed) else { return }
+                    onChange(min(maximum, max(minimum, parsed)))
+                }
+                MintStepperButton(symbol: "+", action: {
+                    onChange(min(maximum, value + 1))
+                })
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .background(RestFitTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func planWeightStepper(_ exercise: StrengthExercise, weekday: Weekday? = nil) -> some View {
+        let display = store.displayWeight(exercise.weightKg)
+        let text = store.usesPounds
+            ? "\(Int(display.rounded()))"
+            : String(format: "%.1f", display)
+        let fieldTitle = "\(exercise.name) weight"
+
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Weight")
+                .font(.body.weight(.bold))
+                .foregroundStyle(.white)
+            HStack(spacing: 8) {
+                MintStepperButton(symbol: "−", action: {
+                    store.adjustStrengthWeight(
+                        weekday ?? selectedDay,
+                        id: exercise.id,
+                        deltaDisplay: -store.liftWeightStep
+                    )
+                })
+                typedNumberButton(
+                    text: text,
+                    fieldTitle: fieldTitle,
+                    mode: AeroKeyboardMode.decimal
+                ) { typed in
+                    applyTypedWeight(typed, to: exercise, weekday: weekday)
+                }
+                MintStepperButton(symbol: "+", action: {
+                    store.adjustStrengthWeight(
+                        weekday ?? selectedDay,
+                        id: exercise.id,
+                        deltaDisplay: store.liftWeightStep
+                    )
+                })
+                Text(store.weightUnitLabel)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.muted)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .background(RestFitTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func typedNumberButton(
+        text: String,
+        fieldTitle: String,
+        mode: AeroKeyboardMode,
+        onTyped: @escaping (String) -> Void
+    ) -> some View {
+        let isActive = keyboard.isPresented && keyboard.activeFieldTitle == fieldTitle
+        return Button {
+            keyboard.present(
+                title: fieldTitle,
+                text: text,
+                mode: mode,
+                placeholder: text,
+                onChange: onTyped
+            )
+        } label: {
+            Text(text)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 36.0)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(isActive ? RestFitTheme.mint : RestFitTheme.line, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func applyTypedWeight(_ text: String, to exercise: StrengthExercise, weekday: Weekday? = nil) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let parsed = Double(trimmed), parsed >= 0.0 else { return }
+        var updated = exercise
+        updated.weightKg = store.kilogramsFromDisplay(parsed)
+        updateExercise(updated, weekday: weekday)
+    }
+
     private func resetDraftLift() {
         draftLiftName = ""
         draftLiftSets = 3
         draftLiftReps = 5
         draftLiftWeight = store.usesPounds ? "45" : "20"
         draftTracksWeight = true
+    }
+
+    private func nudgeDraftWeight(_ delta: Double) {
+        let current = Double(draftLiftWeight) ?? (store.usesPounds ? 45.0 : 20.0)
+        let next = max(0.0, current + delta)
+        if store.usesPounds {
+            draftLiftWeight = "\(Int(next.rounded()))"
+        } else {
+            draftLiftWeight = String(format: "%.1f", next)
+        }
     }
 
     private func addDraftLift() {
@@ -458,6 +643,7 @@ struct StrengthPlanView: View {
             )
         )
         resetDraftLift()
+        showAddLift = false
     }
 
     private func updateExercise(_ exercise: StrengthExercise, weekday: Weekday? = nil) {
@@ -538,15 +724,15 @@ struct StrengthPlanView: View {
                             ForEach(day.exercises) { exercise in
                                 HStack(spacing: 10) {
                                     Text(exercise.name)
-                                        .font(.caption.weight(.semibold))
+                                        .font(.title3.weight(.bold))
                                         .foregroundStyle(.white)
                                     Spacer(minLength: 8)
                                     Text(store.liftPrescription(exercise))
-                                        .font(.caption.weight(.semibold))
+                                        .font(.body.weight(.bold))
                                         .foregroundStyle(RestFitTheme.mint)
                                 }
                                 .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
+                                .padding(.vertical, 14)
                                 .background(RestFitTheme.card)
                                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             }
@@ -918,6 +1104,8 @@ struct StrengthPlanView: View {
         return Button {
             selectedDay = day
             customFocus = plan.focus
+            showAddLift = false
+            keyboard.dismiss(force: true)
         } label: {
             VStack(spacing: 4) {
                 Text(day.shortTitle)
@@ -974,14 +1162,14 @@ struct StrengthPlanView: View {
     private func exerciseEditorRow(_ exercise: StrengthExercise) -> some View {
         let current = selectedPlan.exercises.first { $0.id == exercise.id } ?? exercise
 
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(current.name)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.title2.weight(.bold))
                         .foregroundStyle(.white)
                     Text(store.liftPrescription(current))
-                        .font(.caption.weight(.semibold))
+                        .font(.title3.weight(.bold))
                         .foregroundStyle(RestFitTheme.mint)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -990,30 +1178,35 @@ struct StrengthPlanView: View {
                     store.deleteStrengthExercise(selectedDay, id: current.id)
                 } label: {
                     Image(systemName: "trash")
-                        .font(.caption)
+                        .font(.title)
                         .foregroundStyle(RestFitTheme.faint)
+                        .padding(10)
                 }
                 .buttonStyle(.plain)
             }
 
             HStack(spacing: 10) {
-                inlineLiftStepper(title: "Sets", value: current.sets) {
+                planLiftStepper(
+                    title: "Sets",
+                    value: current.sets,
+                    fieldTitle: "\(current.name) sets",
+                    minimum: 1,
+                    maximum: 10
+                ) { next in
                     var updated = current
-                    updated.sets = max(1, current.sets - 1)
-                    updateExercise(updated)
-                } onIncrement: {
-                    var updated = current
-                    updated.sets = min(10, current.sets + 1)
+                    updated.sets = next
                     updateExercise(updated)
                 }
 
-                inlineLiftStepper(title: "Reps", value: current.reps) {
+                planLiftStepper(
+                    title: "Reps",
+                    value: current.reps,
+                    fieldTitle: "\(current.name) reps",
+                    minimum: 1,
+                    maximum: 50
+                ) { next in
                     var updated = current
-                    updated.reps = max(1, current.reps - 1)
-                    updateExercise(updated)
-                } onIncrement: {
-                    var updated = current
-                    updated.reps = min(50, current.reps + 1)
+                    updated.reps = next
                     updateExercise(updated)
                 }
             }
@@ -1029,41 +1222,24 @@ struct StrengthPlanView: View {
             }
 
             if current.tracksWeight {
-            HStack {
-                Text("Weight")
-                    .font(.caption)
-                    .foregroundStyle(RestFitTheme.muted)
-                Spacer()
-                MintStepperButton(symbol: "−") {
-                    store.adjustStrengthWeight(selectedDay, id: current.id, deltaDisplay: -store.liftWeightStep)
+                planWeightStepper(current)
+
+                HStack {
+                    Text("Warm-up sets (0% → 50% → 75%)")
+                        .font(.caption)
+                        .foregroundStyle(RestFitTheme.muted)
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { current.includeWarmUp },
+                        set: { val in
+                            var updated = current
+                            updated.includeWarmUp = val
+                            updateExercise(updated)
+                        }
+                    ))
+                    .labelsHidden()
+                    .tint(RestFitTheme.mint)
                 }
-
-                Text(store.liftWeightLabel(current.weightKg))
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(minWidth: 72)
-
-                MintStepperButton(symbol: "+") {
-                    store.adjustStrengthWeight(selectedDay, id: current.id, deltaDisplay: store.liftWeightStep)
-                }
-            }
-
-            HStack {
-                Text("Warm-up sets (0% → 50% → 75%)")
-                    .font(.caption)
-                    .foregroundStyle(RestFitTheme.muted)
-                Spacer()
-                Toggle("", isOn: Binding(
-                    get: { current.includeWarmUp },
-                    set: { val in
-                        var updated = current
-                        updated.includeWarmUp = val
-                        updateExercise(updated)
-                    }
-                ))
-                .labelsHidden()
-                .tint(RestFitTheme.mint)
-            }
             }
         }
         .padding(12)
@@ -1089,16 +1265,16 @@ struct StrengthPlanView: View {
                             .foregroundStyle(allDone ? RestFitTheme.mint : RestFitTheme.faint)
                             .frame(width: 36, height: 36)
 
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(live.name)
-                                .font(.body.weight(.semibold))
+                                .font(.title3.weight(.bold))
                                 .foregroundStyle(allDone ? RestFitTheme.muted : .white)
                             Text(
                                 live.tracksWeight
                                     ? "\(live.reps) reps @ \(store.liftWeightLabel(live.weightKg))"
                                     : "\(live.reps) reps"
                             )
-                                .font(.subheadline.weight(.semibold))
+                                .font(.body.weight(.bold))
                                 .foregroundStyle(RestFitTheme.mint)
                         }
 
@@ -1173,6 +1349,10 @@ struct StrengthPlanView: View {
                     updated.weightKg = 0.0
                 }
                 updateExercise(updated, weekday: sessionEditDay)
+            }
+
+            if live.tracksWeight {
+                planWeightStepper(live, weekday: sessionEditDay)
             }
         }
         .padding(12)

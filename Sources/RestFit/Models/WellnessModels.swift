@@ -497,6 +497,8 @@ struct WorkoutSettings: Codable, Hashable {
     var morningNudgeMinute: Int
     var followWakeAlarm: Bool
     var usesCalendarLayout: Bool
+    /// 1 = starter lifts migrated to 3×5.
+    var liftSchemeVersion: Int
 
     static var `default`: WorkoutSettings {
         WorkoutSettings(
@@ -508,7 +510,8 @@ struct WorkoutSettings: Codable, Hashable {
             morningNudgeHour: 7,
             morningNudgeMinute: 30,
             followWakeAlarm: true,
-            usesCalendarLayout: false
+            usesCalendarLayout: false,
+            liftSchemeVersion: 1
         )
     }
 
@@ -529,7 +532,7 @@ struct WorkoutSettings: Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case weekStartsOn, trainingNotes, lastDaySplashAt, lastWeekEndSplashKey
         case morningNudgeEnabled, morningNudgeHour, morningNudgeMinute, followWakeAlarm
-        case usesCalendarLayout
+        case usesCalendarLayout, liftSchemeVersion
     }
 
     init(
@@ -541,7 +544,8 @@ struct WorkoutSettings: Codable, Hashable {
         morningNudgeHour: Int,
         morningNudgeMinute: Int,
         followWakeAlarm: Bool,
-        usesCalendarLayout: Bool = false
+        usesCalendarLayout: Bool = false,
+        liftSchemeVersion: Int = 1
     ) {
         self.weekStartsOn = weekStartsOn
         self.trainingNotes = trainingNotes
@@ -552,6 +556,7 @@ struct WorkoutSettings: Codable, Hashable {
         self.morningNudgeMinute = morningNudgeMinute
         self.followWakeAlarm = followWakeAlarm
         self.usesCalendarLayout = usesCalendarLayout
+        self.liftSchemeVersion = liftSchemeVersion
     }
 
     init(from decoder: Decoder) throws {
@@ -565,6 +570,7 @@ struct WorkoutSettings: Codable, Hashable {
         morningNudgeMinute = try container.decodeIfPresent(Int.self, forKey: .morningNudgeMinute) ?? 30
         followWakeAlarm = try container.decodeIfPresent(Bool.self, forKey: .followWakeAlarm) ?? true
         usesCalendarLayout = try container.decodeIfPresent(Bool.self, forKey: .usesCalendarLayout) ?? false
+        liftSchemeVersion = try container.decodeIfPresent(Int.self, forKey: .liftSchemeVersion) ?? 0
     }
 }
 
@@ -700,9 +706,9 @@ struct StrengthWeekPlan: Codable, Hashable {
                 focus: "Workout",
                 isRestDay: false,
                 exercises: [
-                    StrengthExercise(name: "Bench press", sets: 3, reps: 8, weightKg: 61.2),
-                    StrengthExercise(name: "Overhead press", sets: 3, reps: 8, weightKg: 34.0),
-                    StrengthExercise(name: "Tricep pushdown", sets: 3, reps: 12, weightKg: 13.6)
+                    StrengthExercise(name: "Bench press", sets: 3, reps: 5, weightKg: 61.2),
+                    StrengthExercise(name: "Overhead press", sets: 3, reps: 5, weightKg: 34.0),
+                    StrengthExercise(name: "Tricep pushdown", sets: 3, reps: 5, weightKg: 13.6)
                 ]
             ),
             StrengthDayPlan(
@@ -710,9 +716,9 @@ struct StrengthWeekPlan: Codable, Hashable {
                 focus: "Workout",
                 isRestDay: false,
                 exercises: [
-                    StrengthExercise(name: "Barbell row", sets: 3, reps: 8, weightKg: 43.1),
-                    StrengthExercise(name: "Lat pulldown", sets: 3, reps: 10, weightKg: 36.3),
-                    StrengthExercise(name: "Dumbbell curl", sets: 3, reps: 12, weightKg: 11.3)
+                    StrengthExercise(name: "Barbell row", sets: 3, reps: 5, weightKg: 43.1),
+                    StrengthExercise(name: "Lat pulldown", sets: 3, reps: 5, weightKg: 36.3),
+                    StrengthExercise(name: "Dumbbell curl", sets: 3, reps: 5, weightKg: 11.3)
                 ]
             ),
             StrengthDayPlan(weekday: .wednesday, focus: "Rest", isRestDay: true),
@@ -721,9 +727,9 @@ struct StrengthWeekPlan: Codable, Hashable {
                 focus: "Workout",
                 isRestDay: false,
                 exercises: [
-                    StrengthExercise(name: "Back squat", sets: 3, reps: 6, weightKg: 83.9),
-                    StrengthExercise(name: "Romanian deadlift", sets: 3, reps: 8, weightKg: 61.2),
-                    StrengthExercise(name: "Leg press", sets: 3, reps: 10, weightKg: 90.7)
+                    StrengthExercise(name: "Back squat", sets: 3, reps: 5, weightKg: 83.9),
+                    StrengthExercise(name: "Romanian deadlift", sets: 3, reps: 5, weightKg: 61.2),
+                    StrengthExercise(name: "Leg press", sets: 3, reps: 5, weightKg: 90.7)
                 ]
             ),
             StrengthDayPlan(
@@ -731,9 +737,9 @@ struct StrengthWeekPlan: Codable, Hashable {
                 focus: "Workout",
                 isRestDay: false,
                 exercises: [
-                    StrengthExercise(name: "Incline bench", sets: 3, reps: 8, weightKg: 52.2),
-                    StrengthExercise(name: "Seated row", sets: 3, reps: 10, weightKg: 40.8),
-                    StrengthExercise(name: "Lateral raise", sets: 3, reps: 12, weightKg: 6.8)
+                    StrengthExercise(name: "Incline bench", sets: 3, reps: 5, weightKg: 52.2),
+                    StrengthExercise(name: "Seated row", sets: 3, reps: 5, weightKg: 40.8),
+                    StrengthExercise(name: "Lateral raise", sets: 3, reps: 5, weightKg: 6.8)
                 ]
             ),
             StrengthDayPlan(weekday: .saturday, focus: "Rest", isRestDay: true),
