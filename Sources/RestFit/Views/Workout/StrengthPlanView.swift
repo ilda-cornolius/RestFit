@@ -312,7 +312,8 @@ struct StrengthPlanView: View {
                             mode: AeroKeyboardMode.text,
                             placeholder: "Push, Pull, Legs...",
                             minHeight: 48.0,
-                            trailingLabel: "Edit"
+                            trailingLabel: "Edit",
+                            suggestions: LiftNameSuggestions.workoutNames
                         )
                         Button("Save") {
                             let name = customFocus.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -386,7 +387,9 @@ struct StrengthPlanView: View {
                 mode: AeroKeyboardMode.text,
                 placeholder: "Pull-ups, Bench, Squat...",
                 minHeight: 48.0,
-                trailingLabel: "Edit"
+                trailingLabel: "Edit",
+                fieldID: "add-lift-name",
+                suggestions: knownLiftNames
             )
 
             HStack(spacing: 10) {
@@ -606,6 +609,16 @@ struct StrengthPlanView: View {
         var updated = exercise
         updated.weightKg = store.kilogramsFromDisplay(parsed)
         updateExercise(updated, weekday: weekday)
+    }
+
+    private var knownLiftNames: [String] {
+        var names = LiftNameSuggestions.catalog
+        for day in store.strengthPlan.days {
+            for exercise in day.exercises {
+                names.append(exercise.name)
+            }
+        }
+        return names
     }
 
     private func resetDraftLift() {
@@ -1164,15 +1177,40 @@ struct StrengthPlanView: View {
 
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(current.name)
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(.white)
-                    Text(store.liftPrescription(current))
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(RestFitTheme.mint)
+                Button {
+                    let fieldID = "rename-\(current.id.uuidString)"
+                    keyboard.present(
+                        title: "Lift name",
+                        text: current.name,
+                        mode: AeroKeyboardMode.text,
+                        placeholder: "Bench press",
+                        fieldID: fieldID,
+                        suggestions: knownLiftNames,
+                        onChange: { typed in
+                            let trimmed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !trimmed.isEmpty else { return }
+                            var updated = current
+                            updated.name = trimmed
+                            updateExercise(updated)
+                        }
+                    )
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text(current.name)
+                                .font(.title2.weight(.bold))
+                                .foregroundStyle(.white)
+                            Text("Edit")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(RestFitTheme.mint)
+                        }
+                        Text(store.liftPrescription(current))
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(RestFitTheme.mint)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(.plain)
 
                 Button {
                     store.deleteStrengthExercise(selectedDay, id: current.id)

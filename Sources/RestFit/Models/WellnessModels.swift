@@ -637,6 +637,66 @@ struct StrengthExercise: Identifiable, Codable, Hashable {
     }
 }
 
+enum LiftNameSuggestions {
+    static let catalog: [String] = [
+        "Bench press", "Incline bench", "Decline bench", "Dumbbell press",
+        "Overhead press", "Push-up", "Dip", "Chest fly", "Cable fly",
+        "Tricep pushdown", "Skull crusher", "Close-grip bench",
+        "Lateral raise", "Front raise", "Rear delt fly", "Face pull",
+        "Barbell row", "Dumbbell row", "Seated row", "T-bar row",
+        "Lat pulldown", "Pull-up", "Chin-up", "Straight-arm pulldown",
+        "Deadlift", "Romanian deadlift", "Sumo deadlift", "Trap bar deadlift",
+        "Bicep curl", "Hammer curl", "Preacher curl", "Cable curl",
+        "Back squat", "Front squat", "Goblet squat", "Hack squat",
+        "Leg press", "Leg curl", "Leg extension", "Lunge",
+        "Bulgarian split squat", "Hip thrust", "Glute bridge", "Calf raise",
+        "Plank", "Crunch", "Hanging leg raise", "Farmer carry",
+        "Clean", "Power clean", "Thruster", "Kettlebell swing"
+    ]
+
+    static let workoutNames: [String] = [
+        "Push", "Pull", "Legs", "Upper", "Lower", "Full body",
+        "Chest", "Back", "Shoulders", "Arms", "Core"
+    ]
+
+    static func matching(_ query: String, in catalog: [String], limit: Int = 8) -> [String] {
+        var seen: [String] = []
+        var unique: [String] = []
+        for name in catalog {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            let key = trimmed.lowercased()
+            if seen.contains(key) { continue }
+            seen.append(key)
+            unique.append(trimmed)
+        }
+
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if q.isEmpty {
+            if unique.count > limit {
+                return Array(unique.prefix(limit))
+            }
+            return unique
+        }
+
+        var prefixHits: [String] = []
+        var otherHits: [String] = []
+        for name in unique {
+            let lower = name.lowercased()
+            if lower.hasPrefix(q) {
+                prefixHits.append(name)
+            } else if lower.contains(q) {
+                otherHits.append(name)
+            }
+        }
+        let combined = prefixHits + otherHits
+        if combined.count > limit {
+            return Array(combined.prefix(limit))
+        }
+        return combined
+    }
+}
+
 /// Tracks how many sets of a lift were completed during an active strength session.
 struct CompletedStrengthSet: Codable, Hashable {
     var exerciseID: UUID

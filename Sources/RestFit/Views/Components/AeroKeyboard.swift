@@ -19,6 +19,7 @@ enum AeroKeyboardMode: Equatable {
     var placeholder: String = ""
     var activeFieldTitle: String = ""
     var cursorIndex: Int = 0
+    var suggestionCatalog: [String] = []
 
     /// Called on every keystroke so the bound field stays live.
     var onChange: ((String) -> Void)?
@@ -33,18 +34,22 @@ enum AeroKeyboardMode: Equatable {
         text: String,
         mode: AeroKeyboardMode,
         placeholder: String = "",
+        fieldID: String = "",
+        suggestions: [String] = [],
         onChange: @escaping (String) -> Void,
         onDone: (() -> Void)? = nil
     ) {
-        let switchingField = isPresented && activeFieldTitle != title
+        let identity = fieldID.isEmpty ? title : fieldID
+        let switchingField = isPresented && activeFieldTitle != identity
 
         self.title = title
         self.draft = text
         self.mode = mode
         self.placeholder = placeholder
+        self.suggestionCatalog = suggestions
         self.onChange = onChange
         self.onDone = onDone
-        self.activeFieldTitle = title
+        self.activeFieldTitle = identity
         self.cursorIndex = text.count
 
         if isPresented && !switchingField {
@@ -74,6 +79,7 @@ enum AeroKeyboardMode: Equatable {
         activeFieldTitle = ""
         cursorIndex = 0
         openedAt = nil
+        suggestionCatalog = []
     }
 
     func moveCursor(to index: Int) {
@@ -105,6 +111,12 @@ enum AeroKeyboardMode: Equatable {
         onChange?(draft)
     }
 
+    func applySuggestion(_ name: String) {
+        draft = name
+        cursorIndex = name.count
+        onChange?(name)
+    }
+
     func finish() {
         onDone?()
         dismiss(force: true)
@@ -122,15 +134,20 @@ struct AeroTextField: View {
     var placeholder: String = ""
     var minHeight: CGFloat = 58.0
     var trailingLabel: String?
+    var fieldID: String = ""
+    var suggestions: [String] = []
 
     var body: some View {
-        let isActive = keyboard.isPresented && keyboard.activeFieldTitle == title
+        let identity = fieldID.isEmpty ? title : fieldID
+        let isActive = keyboard.isPresented && keyboard.activeFieldTitle == identity
         Button {
             keyboard.present(
                 title: title,
                 text: text,
                 mode: mode,
                 placeholder: placeholder.isEmpty ? title : placeholder,
+                fieldID: identity,
+                suggestions: suggestions,
                 onChange: { text = $0 }
             )
         } label: {
@@ -286,6 +303,8 @@ private struct AeroKeyboardPanel: View {
             }
             .padding(.horizontal, 8.0)
 
+            suggestionChips
+
             Group {
                 if keyboard.mode == .decimal || keyboard.mode == .number {
                     numberPad
@@ -342,6 +361,37 @@ private struct AeroKeyboardPanel: View {
     private func finishFromDoneButton() {
         AeroHaptics.lightTap()
         keyboard.finish()
+    }
+
+    private var visibleSuggestions: [String] {
+        if keyboard.mode != .text { return [] }
+        return LiftNameSuggestions.matching(keyboard.draft, in: keyboard.suggestionCatalog)
+    }
+
+    private var suggestionChips: some View {
+        Group {
+            if !visibleSuggestions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8.0) {
+                        ForEach(visibleSuggestions, id: \.self) { name in
+                            Button {
+                                AeroHaptics.lightTap()
+                                keyboard.applySuggestion(name)
+                            } label: {
+                                Text(name)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(RestFitTheme.canvas)
+                                    .padding(.horizontal, 12.0)
+                                    .padding(.vertical, 8.0)
+                                    .background(RestFitTheme.mint)
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private var panelBackground: some View {

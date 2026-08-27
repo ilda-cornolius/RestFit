@@ -150,7 +150,8 @@ struct TodayWorkoutCard: View {
                 text: $liftName,
                 mode: AeroKeyboardMode.text,
                 placeholder: "Bench press",
-                minHeight: 48.0
+                minHeight: 48.0,
+                suggestions: LiftNameSuggestions.catalog
             )
             HStack(spacing: 12) {
                 stepperField("Sets", value: $liftSets, lowerBound: 1, upperBound: 10)
