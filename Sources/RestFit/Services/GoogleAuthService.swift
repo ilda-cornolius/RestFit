@@ -45,15 +45,18 @@ enum GoogleAuthService {
         guard let activity = UIApplication.shared.androidActivity else {
             throw GoogleAuthError.noActivity
         }
+        let playInstall = isPlayStoreInstall(activity)
         let credentialManager = androidx.credentials.CredentialManager.create(activity)
 
-        // Clear stale Google sessions — Play devices often fail reauth with a fake "cancelled".
-        do {
-            try await credentialManager.clearCredentialState(
-                androidx.credentials.ClearCredentialStateRequest()
-            )
-        } catch {
-            android.util.Log.w("RestFitAuth", "clearCredentialState: \(error)")
+        // Play-only: clear stale sessions. On debug/emulator this can break reauth ("Checking info…" loop).
+        if playInstall {
+            do {
+                try await credentialManager.clearCredentialState(
+                    androidx.credentials.ClearCredentialStateRequest()
+                )
+            } catch {
+                android.util.Log.w("RestFitAuth", "clearCredentialState: \(error)")
+            }
         }
 
         // 1) Bottom-sheet Google ID (recommended first).
@@ -73,7 +76,7 @@ enum GoogleAuthService {
             android.util.Log.w("RestFitAuth", "GetGoogleId cancelled: \(error)")
         } catch {
             if !isNoCredential(error) {
-                throw mappedFailure(error)
+                throw mappedFailure(error, playInstall: playInstall)
             }
             android.util.Log.w("RestFitAuth", "GetGoogleId no credential: \(error)")
         }
@@ -96,15 +99,20 @@ enum GoogleAuthService {
         } catch let error as androidx.credentials.exceptions.GetCredentialCancellationException {
             let detail = "\(error)"
             android.util.Log.e("RestFitAuth", "SignInWithGoogle cancelled: \(detail)")
-            throw GoogleAuthError.failed(playCancelMessage(detail: detail))
+            throw GoogleAuthError.failed(configCancelMessage(detail: detail, playInstall: playInstall))
         } catch {
             if isNoCredential(error) {
                 let detail = "\(error)"
                 android.util.Log.e("RestFitAuth", "SignInWithGoogle no credential: \(detail)")
-                throw GoogleAuthError.failed(playCancelMessage(detail: detail))
+                throw GoogleAuthError.failed(configCancelMessage(detail: detail, playInstall: playInstall))
             }
-            throw mappedFailure(error)
+            throw mappedFailure(error, playInstall: playInstall)
         }
+    }
+
+    private static func isPlayStoreInstall(_ activity: android.app.Activity) -> Bool {
+        let installer = activity.packageManager.getInstallerPackageName(activity.packageName)
+        return installer == "com.android.vending"
     }
 
     private static func requestGoogleUser(
@@ -135,7 +143,7 @@ enum GoogleAuthService {
         let idToken = googleId.idToken
         guard !idToken.isEmpty else {
             throw GoogleAuthError.failed(
-                "Google did not return a sign-in token. \(GoogleAuthConfig.playStoreSignInHint)"
+                "Google did not return a sign-in token. \(GoogleAuthConfig.shaConfigHint(isPlayInstall: isPlayStoreInstall(activity)))"
             )
         }
 
@@ -186,13 +194,17 @@ enum GoogleAuthService {
         "\(error) | \(error.localizedDescription)"
     }
 
-    /// Play often reports SHA / reauth failures as "user cancelled".
-    private static func playCancelMessage(detail: String) -> String {
+    /// Credential Manager often reports SHA / reauth failures as "user cancelled".
+    private static func configCancelMessage(detail: String, playInstall: Bool) -> String {
+        let hint = GoogleAuthConfig.shaConfigHint(isPlayInstall: playInstall)
         let lower = detail.lowercased()
         if lower.contains("16") || lower.contains("reauth") || lower.contains("developer") || lower.contains("10:") {
-            return "Google blocked Play Sign-In (config). \(GoogleAuthConfig.playStoreSignInHint) Detail: \(String(detail.prefix(160)))"
+            let emulatorHint = playInstall ? "" : " \(GoogleAuthConfig.emulatorAccountHint)"
+            return "\(GoogleAuthConfig.reauthFailedHint)\(emulatorHint) Detail: \(String(detail.prefix(120)))"
         }
-        return "Google closed Sign-In after you chose an account (common on Play when the Android OAuth client SHA-1 does not match Play App signing). Confirm Google Cloud → Credentials → Android OAuth client for package com.restfit.app uses SHA-1 \(GoogleAuthConfig.playStoreSha1). Detail: \(String(detail.prefix(120)))"
+        let expected = playInstall ? GoogleAuthConfig.playStoreSha1 : GoogleAuthConfig.debugSha1
+        let label = playInstall ? "Play App signing" : "debug keystore"
+        return "Google closed Sign-In after you chose an account. Confirm Google Cloud → Credentials → Android OAuth client for package \(GoogleAuthConfig.androidPackageName) uses \(label) SHA-1 \(expected). Detail: \(String(detail.prefix(120)))"
     }
 
     private static func normalizedEmail(_ raw: String) -> String {
@@ -230,7 +242,7 @@ enum GoogleAuthService {
             || text.contains("no credentials")
     }
 
-    private static func mappedFailure(_ error: Error) -> GoogleAuthError {
+    private static func mappedFailure(_ error: Error, playInstall: Bool) -> GoogleAuthError {
         let text = describe(error)
         let lower = text.lowercased()
         android.util.Log.e("RestFitAuth", "Google credential request failed: \(text)")
@@ -239,7 +251,7 @@ enum GoogleAuthService {
             return .failed(GoogleAuthConfig.testUserHint)
         }
         if lower.contains("sha") || lower.contains("developer_error") || lower.contains("10:") || lower.contains("reauth") {
-            return .failed(GoogleAuthConfig.playStoreSignInHint)
+            return .failed(GoogleAuthConfig.shaConfigHint(isPlayInstall: playInstall))
         }
         if lower.contains("network") || lower.contains("unable to resolve") || lower.contains("timeout") {
             return .failed("Network error during Google sign-in. Check your connection and try again.")
@@ -249,7 +261,7 @@ enum GoogleAuthService {
                 "Google rejected the sign-in. Confirm Google is enabled in Firebase Authentication and the Web client ID matches your Firebase project."
             )
         }
-        return .failed(playCancelMessage(detail: text))
+        return .failed(configCancelMessage(detail: text, playInstall: playInstall))
     }
     #endif
 }
