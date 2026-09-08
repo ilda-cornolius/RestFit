@@ -621,11 +621,19 @@ struct StrengthExercise: Identifiable, Codable, Hashable {
         tracksWeight = try container.decodeIfPresent(Bool.self, forKey: .tracksWeight) ?? true
     }
 
-    /// Auto-calculated warm-up progression: 0%, 50%, 75% of working weight.
+    /// Deadlift-family lifts start warm-ups from a light bar (~10 display units), not empty.
+    var isDeadliftFamily: Bool {
+        let lower = name.lowercased()
+        return lower.contains("deadlift")
+    }
+
+    /// Raw warm-up ratios before plate rounding. Prefer `WellnessStore.warmUpSets(for:)` for display.
     var warmUpProgression: [(weightKg: Double, reps: Int)] {
         guard includeWarmUp, tracksWeight else { return [] }
+        // ~10 lb bar for deadlifts when unit is pounds; store re-rounds in display units.
+        let barKg = isDeadliftFamily ? (10.0 / 2.2046226218) : 0.0
         return [
-            (0.0,             10),
+            (barKg,           10),
             (weightKg * 0.50, 5),
             (weightKg * 0.75, 3),
         ]
@@ -635,9 +643,43 @@ struct StrengthExercise: Identifiable, Codable, Hashable {
     var totalSessionTaps: Int {
         warmUpProgression.count + sets
     }
+
+    static func normalizedLiftKey(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
 }
 
 enum LiftNameSuggestions {
+    /// Session-row glyph inferred from the lift name (emoji — reliable on Skip/Android).
+    static func sessionIcon(for name: String) -> String {
+        let n = StrengthExercise.normalizedLiftKey(name)
+        if n.contains("bench") || n.contains("chest") || n.contains("fly") || n.contains("push-up") || n.contains("pushup") || n.contains("dip") {
+            return "🏋️"
+        }
+        if n.contains("squat") || n.contains("leg press") || n.contains("lunge") || n.contains("leg extension") || n.contains("leg curl") || n.contains("calf") {
+            return "🦵"
+        }
+        if n.contains("deadlift") || n.contains("rdl") || n.contains("hip thrust") || n.contains("glute") || n.contains("good morning") {
+            return "🦾"
+        }
+        if n.contains("row") || n.contains("pull-up") || n.contains("pullup") || n.contains("chin-up") || n.contains("chinup") || n.contains("pulldown") || n.contains("lat ") {
+            return "💪"
+        }
+        if n.contains("press") || n.contains("shoulder") || n.contains("overhead") || n.contains("military") || n.contains("lateral raise") || n.contains("front raise") || n.contains("rear delt") || n.contains("face pull") {
+            return "🙌"
+        }
+        if n.contains("curl") || n.contains("bicep") || n.contains("tricep") || n.contains("skull") || n.contains("pushdown") {
+            return "💪"
+        }
+        if n.contains("plank") || n.contains("crunch") || n.contains("core") || n.contains("leg raise") || n.contains("ab") {
+            return "🧘"
+        }
+        if n.contains("clean") || n.contains("snatch") || n.contains("thruster") || n.contains("kettlebell") || n.contains("swing") || n.contains("farmer") || n.contains("carry") {
+            return "⚡"
+        }
+        return "🏅"
+    }
+
     static let catalog: [String] = [
         "Bench press", "Incline bench", "Decline bench", "Dumbbell press",
         "Overhead press", "Push-up", "Dip", "Chest fly", "Cable fly",
@@ -697,10 +739,69 @@ enum LiftNameSuggestions {
     }
 }
 
+/// Effort mark after a working set: ++ could have done more, -- was too heavy.
+enum LiftSetEffort: String, Codable, Hashable {
+    case plusPlus = "++"
+    case minusMinus = "--"
+    case none = ""
+}
+
 /// Tracks how many sets of a lift were completed during an active strength session.
 struct CompletedStrengthSet: Codable, Hashable {
     var exerciseID: UUID
     var completedSets: Int
+    /// Per working-set effort (`++` / `--` / empty), indexed 0..<working sets done.
+    var workingEfforts: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case exerciseID, completedSets, workingEfforts
+    }
+
+    init(exerciseID: UUID, completedSets: Int, workingEfforts: [String] = []) {
+        self.exerciseID = exerciseID
+        self.completedSets = completedSets
+        self.workingEfforts = workingEfforts
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        exerciseID = try container.decode(UUID.self, forKey: .exerciseID)
+        completedSets = try container.decode(Int.self, forKey: .completedSets)
+        workingEfforts = try container.decodeIfPresent([String].self, forKey: .workingEfforts) ?? []
+    }
+}
+
+/// F1-style best / last lap times for a lift name (synced across the week by name).
+struct LiftLapBest: Codable, Hashable, Identifiable {
+    var id: String { nameKey }
+    var nameKey: String
+    var displayName: String
+    var bestSeconds: Int
+    var lastSeconds: Int
+    var updatedAt: Date
+
+    init(
+        nameKey: String,
+        displayName: String,
+        bestSeconds: Int,
+        lastSeconds: Int,
+        updatedAt: Date = .now
+    ) {
+        self.nameKey = nameKey
+        self.displayName = displayName
+        self.bestSeconds = bestSeconds
+        self.lastSeconds = lastSeconds
+        self.updatedAt = updatedAt
+    }
+}
+
+/// One finished lift lap inside the current session (shown like a race timing board).
+struct SessionLiftLap: Codable, Hashable, Identifiable {
+    var id: UUID
+    var exerciseID: UUID
+    var name: String
+    var elapsedSeconds: Int
+    var beatBest: Bool
 }
 
 struct StrengthDayPlan: Identifiable, Codable, Hashable {
@@ -759,53 +860,250 @@ struct StrengthWeekPlan: Codable, Hashable {
         )
     }
 
-    static var sample: StrengthWeekPlan {
+    /// Classic Mon/Wed/Fri push-pull-legs with accessories; Tue/Thu lighter; weekends rest.
+    static var sample: StrengthWeekPlan { pushPullLegsTemplate }
+
+    static var pushPullLegsTemplate: StrengthWeekPlan {
         StrengthWeekPlan(days: [
             StrengthDayPlan(
                 weekday: .monday,
-                focus: "Workout",
+                focus: "Push",
                 isRestDay: false,
                 exercises: [
                     StrengthExercise(name: "Bench press", sets: 3, reps: 5, weightKg: 61.2),
                     StrengthExercise(name: "Overhead press", sets: 3, reps: 5, weightKg: 34.0),
-                    StrengthExercise(name: "Tricep pushdown", sets: 3, reps: 5, weightKg: 13.6)
+                    StrengthExercise(name: "Tricep pushdown", sets: 3, reps: 8, weightKg: 13.6)
                 ]
             ),
             StrengthDayPlan(
                 weekday: .tuesday,
-                focus: "Workout",
+                focus: "Pull",
                 isRestDay: false,
                 exercises: [
+                    StrengthExercise(name: "Deadlift", sets: 3, reps: 5, weightKg: 61.2),
                     StrengthExercise(name: "Barbell row", sets: 3, reps: 5, weightKg: 43.1),
-                    StrengthExercise(name: "Lat pulldown", sets: 3, reps: 5, weightKg: 36.3),
-                    StrengthExercise(name: "Dumbbell curl", sets: 3, reps: 5, weightKg: 11.3)
+                    StrengthExercise(name: "Lat pulldown", sets: 3, reps: 8, weightKg: 36.3)
                 ]
             ),
-            StrengthDayPlan(weekday: .wednesday, focus: "Rest", isRestDay: true),
             StrengthDayPlan(
-                weekday: .thursday,
-                focus: "Workout",
+                weekday: .wednesday,
+                focus: "Legs",
                 isRestDay: false,
                 exercises: [
                     StrengthExercise(name: "Back squat", sets: 3, reps: 5, weightKg: 83.9),
                     StrengthExercise(name: "Romanian deadlift", sets: 3, reps: 5, weightKg: 61.2),
-                    StrengthExercise(name: "Leg press", sets: 3, reps: 5, weightKg: 90.7)
+                    StrengthExercise(name: "Leg press", sets: 3, reps: 8, weightKg: 90.7)
+                ]
+            ),
+            StrengthDayPlan(
+                weekday: .thursday,
+                focus: "Upper",
+                isRestDay: false,
+                exercises: [
+                    StrengthExercise(name: "Incline bench", sets: 3, reps: 8, weightKg: 52.2),
+                    StrengthExercise(name: "Seated row", sets: 3, reps: 8, weightKg: 40.8),
+                    StrengthExercise(name: "Lateral raise", sets: 3, reps: 12, weightKg: 6.8)
                 ]
             ),
             StrengthDayPlan(
                 weekday: .friday,
-                focus: "Workout",
+                focus: "Full body",
                 isRestDay: false,
                 exercises: [
-                    StrengthExercise(name: "Incline bench", sets: 3, reps: 5, weightKg: 52.2),
-                    StrengthExercise(name: "Seated row", sets: 3, reps: 5, weightKg: 40.8),
-                    StrengthExercise(name: "Lateral raise", sets: 3, reps: 5, weightKg: 6.8)
+                    StrengthExercise(name: "Deadlift", sets: 3, reps: 5, weightKg: 61.2),
+                    StrengthExercise(name: "Bench press", sets: 3, reps: 5, weightKg: 61.2),
+                    StrengthExercise(name: "Back squat", sets: 3, reps: 5, weightKg: 83.9)
                 ]
             ),
             StrengthDayPlan(weekday: .saturday, focus: "Rest", isRestDay: true),
             StrengthDayPlan(weekday: .sunday, focus: "Rest", isRestDay: true)
         ])
     }
+
+    static var upperLowerTemplate: StrengthWeekPlan {
+        StrengthWeekPlan(days: [
+            StrengthDayPlan(
+                weekday: .monday,
+                focus: "Upper",
+                isRestDay: false,
+                exercises: [
+                    StrengthExercise(name: "Bench press", sets: 3, reps: 5, weightKg: 61.2),
+                    StrengthExercise(name: "Barbell row", sets: 3, reps: 5, weightKg: 43.1),
+                    StrengthExercise(name: "Overhead press", sets: 3, reps: 8, weightKg: 34.0),
+                    StrengthExercise(name: "Lat pulldown", sets: 3, reps: 8, weightKg: 36.3)
+                ]
+            ),
+            StrengthDayPlan(
+                weekday: .tuesday,
+                focus: "Lower",
+                isRestDay: false,
+                exercises: [
+                    StrengthExercise(name: "Back squat", sets: 3, reps: 5, weightKg: 83.9),
+                    StrengthExercise(name: "Deadlift", sets: 3, reps: 5, weightKg: 61.2),
+                    StrengthExercise(name: "Leg curl", sets: 3, reps: 10, weightKg: 27.2),
+                    StrengthExercise(name: "Calf raise", sets: 3, reps: 12, weightKg: 40.8)
+                ]
+            ),
+            StrengthDayPlan(weekday: .wednesday, focus: "Rest", isRestDay: true),
+            StrengthDayPlan(
+                weekday: .thursday,
+                focus: "Upper",
+                isRestDay: false,
+                exercises: [
+                    StrengthExercise(name: "Incline bench", sets: 3, reps: 8, weightKg: 52.2),
+                    StrengthExercise(name: "Seated row", sets: 3, reps: 8, weightKg: 40.8),
+                    StrengthExercise(name: "Lateral raise", sets: 3, reps: 12, weightKg: 6.8),
+                    StrengthExercise(name: "Bicep curl", sets: 3, reps: 10, weightKg: 11.3)
+                ]
+            ),
+            StrengthDayPlan(
+                weekday: .friday,
+                focus: "Lower",
+                isRestDay: false,
+                exercises: [
+                    StrengthExercise(name: "Front squat", sets: 3, reps: 5, weightKg: 52.2),
+                    StrengthExercise(name: "Romanian deadlift", sets: 3, reps: 8, weightKg: 61.2),
+                    StrengthExercise(name: "Leg press", sets: 3, reps: 10, weightKg: 90.7),
+                    StrengthExercise(name: "Hip thrust", sets: 3, reps: 10, weightKg: 61.2)
+                ]
+            ),
+            StrengthDayPlan(weekday: .saturday, focus: "Rest", isRestDay: true),
+            StrengthDayPlan(weekday: .sunday, focus: "Rest", isRestDay: true)
+        ])
+    }
+
+    static var fullBodyTemplate: StrengthWeekPlan {
+        let lifts = [
+            StrengthExercise(name: "Back squat", sets: 3, reps: 5, weightKg: 83.9),
+            StrengthExercise(name: "Bench press", sets: 3, reps: 5, weightKg: 61.2),
+            StrengthExercise(name: "Deadlift", sets: 3, reps: 5, weightKg: 61.2),
+            StrengthExercise(name: "Overhead press", sets: 3, reps: 8, weightKg: 34.0)
+        ]
+        return StrengthWeekPlan(days: [
+            StrengthDayPlan(weekday: .monday, focus: "Full body", isRestDay: false, exercises: lifts.map {
+                StrengthExercise(name: $0.name, sets: $0.sets, reps: $0.reps, weightKg: $0.weightKg)
+            }),
+            StrengthDayPlan(weekday: .tuesday, focus: "Rest", isRestDay: true),
+            StrengthDayPlan(weekday: .wednesday, focus: "Full body", isRestDay: false, exercises: lifts.map {
+                StrengthExercise(name: $0.name, sets: $0.sets, reps: $0.reps, weightKg: $0.weightKg)
+            }),
+            StrengthDayPlan(weekday: .thursday, focus: "Rest", isRestDay: true),
+            StrengthDayPlan(weekday: .friday, focus: "Full body", isRestDay: false, exercises: lifts.map {
+                StrengthExercise(name: $0.name, sets: $0.sets, reps: $0.reps, weightKg: $0.weightKg)
+            }),
+            StrengthDayPlan(weekday: .saturday, focus: "Rest", isRestDay: true),
+            StrengthDayPlan(weekday: .sunday, focus: "Rest", isRestDay: true)
+        ])
+    }
+
+    /// Starting Strength–style novice linear progression (Phase 2 A/B), Mon/Wed/Fri.
+    /// Public program structure (Rippetoe); weights are starter placeholders — add load each session.
+    static var startingStrengthTemplate: StrengthWeekPlan {
+        let workoutA = [
+            StrengthExercise(name: "Back squat", sets: 3, reps: 5, weightKg: 43.1),
+            StrengthExercise(name: "Overhead press", sets: 3, reps: 5, weightKg: 20.4),
+            StrengthExercise(name: "Deadlift", sets: 1, reps: 5, weightKg: 61.2)
+        ]
+        let workoutB = [
+            StrengthExercise(name: "Back squat", sets: 3, reps: 5, weightKg: 43.1),
+            StrengthExercise(name: "Bench press", sets: 3, reps: 5, weightKg: 34.0),
+            StrengthExercise(name: "Power clean", sets: 5, reps: 3, weightKg: 34.0)
+        ]
+        return StrengthWeekPlan(days: [
+            StrengthDayPlan(weekday: .monday, focus: "SS A", isRestDay: false, exercises: workoutA.map {
+                StrengthExercise(name: $0.name, sets: $0.sets, reps: $0.reps, weightKg: $0.weightKg)
+            }),
+            StrengthDayPlan(weekday: .tuesday, focus: "Rest", isRestDay: true),
+            StrengthDayPlan(weekday: .wednesday, focus: "SS B", isRestDay: false, exercises: workoutB.map {
+                StrengthExercise(name: $0.name, sets: $0.sets, reps: $0.reps, weightKg: $0.weightKg)
+            }),
+            StrengthDayPlan(weekday: .thursday, focus: "Rest", isRestDay: true),
+            StrengthDayPlan(weekday: .friday, focus: "SS A", isRestDay: false, exercises: workoutA.map {
+                StrengthExercise(name: $0.name, sets: $0.sets, reps: $0.reps, weightKg: $0.weightKg)
+            }),
+            StrengthDayPlan(weekday: .saturday, focus: "Rest", isRestDay: true),
+            StrengthDayPlan(weekday: .sunday, focus: "Rest", isRestDay: true)
+        ])
+    }
+
+    /// StrongLifts 5×5–style A/B on Mon/Wed/Fri.
+    static var strongLiftsTemplate: StrengthWeekPlan {
+        let workoutA = [
+            StrengthExercise(name: "Back squat", sets: 5, reps: 5, weightKg: 43.1),
+            StrengthExercise(name: "Bench press", sets: 5, reps: 5, weightKg: 34.0),
+            StrengthExercise(name: "Barbell row", sets: 5, reps: 5, weightKg: 34.0)
+        ]
+        let workoutB = [
+            StrengthExercise(name: "Back squat", sets: 5, reps: 5, weightKg: 43.1),
+            StrengthExercise(name: "Overhead press", sets: 5, reps: 5, weightKg: 20.4),
+            StrengthExercise(name: "Deadlift", sets: 1, reps: 5, weightKg: 61.2)
+        ]
+        return StrengthWeekPlan(days: [
+            StrengthDayPlan(weekday: .monday, focus: "SL 5x5 A", isRestDay: false, exercises: workoutA.map {
+                StrengthExercise(name: $0.name, sets: $0.sets, reps: $0.reps, weightKg: $0.weightKg)
+            }),
+            StrengthDayPlan(weekday: .tuesday, focus: "Rest", isRestDay: true),
+            StrengthDayPlan(weekday: .wednesday, focus: "SL 5x5 B", isRestDay: false, exercises: workoutB.map {
+                StrengthExercise(name: $0.name, sets: $0.sets, reps: $0.reps, weightKg: $0.weightKg)
+            }),
+            StrengthDayPlan(weekday: .thursday, focus: "Rest", isRestDay: true),
+            StrengthDayPlan(weekday: .friday, focus: "SL 5x5 A", isRestDay: false, exercises: workoutA.map {
+                StrengthExercise(name: $0.name, sets: $0.sets, reps: $0.reps, weightKg: $0.weightKg)
+            }),
+            StrengthDayPlan(weekday: .saturday, focus: "Rest", isRestDay: true),
+            StrengthDayPlan(weekday: .sunday, focus: "Rest", isRestDay: true)
+        ])
+    }
+}
+
+/// Named, curated strength programs users can load onto the week plan.
+struct WorkoutProgram: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let summary: String
+    let schedule: String
+    let plan: StrengthWeekPlan
+}
+
+enum WorkoutProgramCatalog {
+    /// Built-in programs based on well-known public routines (not live web downloads).
+    static let all: [WorkoutProgram] = [
+        WorkoutProgram(
+            id: "starting-strength",
+            name: "Starting Strength",
+            summary: "Novice barbell linear progression. Alternates Workout A and B. Squat every session; add weight when you hit all reps.",
+            schedule: "Mon A · Wed B · Fri A (rest Tue/Thu/weekend)",
+            plan: .startingStrengthTemplate
+        ),
+        WorkoutProgram(
+            id: "stronglifts",
+            name: "StrongLifts 5×5",
+            summary: "Three big lifts per day, 5 sets of 5 (deadlift 1×5). Simple A/B progression for beginners.",
+            schedule: "Mon A · Wed B · Fri A",
+            plan: .strongLiftsTemplate
+        ),
+        WorkoutProgram(
+            id: "push-pull-legs",
+            name: "Push / Pull / Legs",
+            summary: "Bro-split style week with dedicated push, pull, legs, plus upper and full-body days.",
+            schedule: "Mon–Fri training · weekend rest",
+            plan: .pushPullLegsTemplate
+        ),
+        WorkoutProgram(
+            id: "upper-lower",
+            name: "Upper / Lower",
+            summary: "Four training days alternating upper and lower body.",
+            schedule: "Mon Upper · Tue Lower · Thu Upper · Fri Lower",
+            plan: .upperLowerTemplate
+        ),
+        WorkoutProgram(
+            id: "full-body",
+            name: "Full body (3 days)",
+            summary: "Same compound session three times a week with rest days between.",
+            schedule: "Mon · Wed · Fri",
+            plan: .fullBodyTemplate
+        )
+    ]
 }
 
 struct WorkoutEntry: Identifiable, Codable, Hashable {
@@ -869,6 +1167,8 @@ struct DailyWorkoutActivity: Identifiable, Codable, Hashable {
     var weightKg: Double
     var minutes: Int
     var notes: String
+    /// Per working-set effort marks (`++` / `--` / empty), copied from the session on finish.
+    var workingEfforts: [String]
 
     init(
         id: UUID = UUID(),
@@ -878,7 +1178,8 @@ struct DailyWorkoutActivity: Identifiable, Codable, Hashable {
         reps: Int = 0,
         weightKg: Double = 0,
         minutes: Int = 0,
-        notes: String = ""
+        notes: String = "",
+        workingEfforts: [String] = []
     ) {
         self.id = id
         self.kind = kind
@@ -888,10 +1189,41 @@ struct DailyWorkoutActivity: Identifiable, Codable, Hashable {
         self.weightKg = weightKg
         self.minutes = minutes
         self.notes = notes
+        self.workingEfforts = workingEfforts
     }
 
-    static func lift(name: String, sets: Int, reps: Int, weightKg: Double) -> DailyWorkoutActivity {
-        DailyWorkoutActivity(kind: .lift, name: name, sets: sets, reps: reps, weightKg: weightKg)
+    enum CodingKeys: String, CodingKey {
+        case id, kind, name, sets, reps, weightKg, minutes, notes, workingEfforts
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        kind = try container.decodeIfPresent(DailyWorkoutActivityKind.self, forKey: .kind) ?? DailyWorkoutActivityKind.activity
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        sets = try container.decodeIfPresent(Int.self, forKey: .sets) ?? 0
+        reps = try container.decodeIfPresent(Int.self, forKey: .reps) ?? 0
+        weightKg = try container.decodeIfPresent(Double.self, forKey: .weightKg) ?? 0.0
+        minutes = try container.decodeIfPresent(Int.self, forKey: .minutes) ?? 0
+        notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        workingEfforts = try container.decodeIfPresent([String].self, forKey: .workingEfforts) ?? []
+    }
+
+    static func lift(
+        name: String,
+        sets: Int,
+        reps: Int,
+        weightKg: Double,
+        workingEfforts: [String] = []
+    ) -> DailyWorkoutActivity {
+        DailyWorkoutActivity(
+            kind: .lift,
+            name: name,
+            sets: sets,
+            reps: reps,
+            weightKg: weightKg,
+            workingEfforts: workingEfforts
+        )
     }
 
     static func walk(minutes: Int = 30) -> DailyWorkoutActivity {

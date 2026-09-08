@@ -56,8 +56,19 @@ import OSLog
     }
 
     var completedStrengthSets: [CompletedStrengthSet] {
-        didSet { save() }
+        didSet { saveAfterWorkoutEdit() }
     }
+
+    /// Personal best / last lap times keyed by normalized lift name.
+    var liftLapBests: [LiftLapBest] {
+        didSet { saveAfterWorkoutEdit() }
+    }
+
+    /// Finished lift laps in the current session (F1 timing board).
+    var sessionLiftLaps: [SessionLiftLap] = []
+
+    /// When each lift's "lap" clock started (exerciseID → Date). Session-only.
+    var liftLapStartedAt: [UUID: Date] = [:]
 
     var activeWorkoutWeekday: Weekday?
 
@@ -99,6 +110,10 @@ import OSLog
         didSet { save() }
     }
 
+    /// Coalesced disk write during live workouts (not observed — must live on the type, not an extension).
+    @ObservationIgnored
+    private var pendingDiskSaveTask: Task<Void, Never>?
+
     var isSignedIn: Bool { authUser != nil }
 
     /// First name from the in-app profile, Google account, or email registration.
@@ -137,6 +152,7 @@ import OSLog
         dailyWorkoutLogs = loaded.dailyWorkoutLogs ?? []
         todayWorkoutPick = loaded.todayWorkoutPick
         completedStrengthSets = loaded.completedStrengthSets ?? []
+        liftLapBests = loaded.liftLapBests ?? []
         activeWorkoutWeekday = loaded.activeWorkoutWeekday
         pomodoroSessions = loaded.pomodoroSessions ?? []
         pomodoroSettings = loaded.pomodoroSettings ?? .default
@@ -265,16 +281,46 @@ import OSLog
 
     @MainActor
     func tick() {
-        now = .now
+        let wall = Date()
+
+        // Alarm / schedule checks use wall clock every second without forcing UI rebuilds.
+        if hasCompletedOnboarding {
+            checkAlarmsOnTick(at: wall)
+            checkDailyWorkoutOnTick(at: wall)
+            if Calendar.current.component(.minute, from: wall) == 0,
+               Calendar.current.component(.second, from: wall) < 2 {
+                now = wall
+                pruneDismissedAlarmKeys()
+            }
+        }
+
+        // Only publish `now` every second when a live timer is on screen.
+        // Otherwise update at most once per minute — stops home/workout scroll jank.
+        publishClock(wall)
+
         if isPomodoroRunning && pomodoroProgress >= 1.0 {
             completePomodoroPhase()
         }
-        if hasCompletedOnboarding {
-            checkAlarmsOnTick()
-            checkDailyWorkoutOnTick()
-            if Calendar.current.component(.minute, from: now) == 0 {
-                pruneDismissedAlarmKeys()
-            }
+    }
+
+    /// True when something still needs the shared `now` published every second.
+    /// Workout / fast / sleep / meditation use local view clocks or `Date()` — do not
+    /// republish `now` for them (that rebuilt the whole tab every second on Fold).
+    private var needsLiveSecondClock: Bool {
+        isPomodoroRunning
+    }
+
+    @MainActor
+    private func publishClock(_ wall: Date) {
+        if needsLiveSecondClock {
+            now = wall
+            return
+        }
+        let calendar = Calendar.current
+        if calendar.component(.minute, from: wall) != calendar.component(.minute, from: now)
+            || calendar.component(.hour, from: wall) != calendar.component(.hour, from: now)
+            || !calendar.isDate(wall, inSameDayAs: now) {
+            now = wall
         }
     }
 
@@ -298,11 +344,11 @@ import OSLog
     }
 
     @MainActor
-    private func checkAlarmsOnTick() {
+    private func checkAlarmsOnTick(at date: Date) {
         if AlarmRingController.shared.isRinging { return }
 
         for (alarmID, fireDate) in snoozedUntil {
-            if now >= fireDate, let alarm = alarms.first(where: { $0.id == alarmID }) {
+            if date >= fireDate, let alarm = alarms.first(where: { $0.id == alarmID }) {
                 snoozedUntil.removeValue(forKey: alarmID)
                 AlarmRingController.shared.present(alarm)
                 return
@@ -310,14 +356,14 @@ import OSLog
         }
 
         let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: now)
-        let minute = calendar.component(.minute, from: now)
-        let second = calendar.component(.second, from: now)
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+        let second = calendar.component(.second, from: date)
         guard second < 30 else { return }
 
         for alarm in alarms where alarm.isEnabled {
             guard alarm.hour == hour, alarm.minute == minute else { continue }
-            let dismissKey = alarmDayDismissKey(for: alarm, on: now)
+            let dismissKey = alarmDayDismissKey(for: alarm, on: date)
             guard !dismissedAlarmDayKeys.contains(dismissKey) else { continue }
             AlarmRingController.shared.present(alarm)
             return
@@ -343,7 +389,8 @@ import OSLog
 
     var fastingElapsed: TimeInterval {
         guard isFasting, let start = fastingStartedAt else { return 0 }
-        return max(0.0, now.timeIntervalSince(start))
+        // Date() so reading this does not subscribe views to store.now ticks.
+        return max(0.0, Date().timeIntervalSince(start))
     }
 
     var fastingTarget: TimeInterval {
@@ -462,7 +509,7 @@ import OSLog
 
     var meditationElapsed: TimeInterval {
         guard isMeditating, let start = meditationStartedAt else { return 0.0 }
-        return max(0.0, now.timeIntervalSince(start))
+        return max(0.0, Date().timeIntervalSince(start))
     }
 
     var meditationTarget: TimeInterval {
@@ -581,7 +628,7 @@ import OSLog
 
     var sleepElapsed: TimeInterval {
         guard isSleeping, let start = sleepStartedAt else { return 0.0 }
-        return max(0.0, now.timeIntervalSince(start))
+        return max(0.0, Date().timeIntervalSince(start))
     }
 
     var sleepElapsedLabel: String {
@@ -984,7 +1031,7 @@ import OSLog
 
     var workoutElapsed: TimeInterval {
         guard isWorkingOut, let start = workoutStartedAt else { return 0 }
-        return max(0.0, now.timeIntervalSince(start))
+        return max(0.0, Date().timeIntervalSince(start))
     }
 
     var workoutTimerLabel: String {
@@ -1129,7 +1176,8 @@ import OSLog
 
     var currentWeekStart: Date {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: now)
+        // Wall clock — must not subscribe scroll/workout UIs to store.now.
+        let today = calendar.startOfDay(for: Date())
         let todayWeekday = calendar.component(.weekday, from: today)
         let startRaw = workoutSettings.weekStartsOn.rawValue
         var delta = todayWeekday - startRaw
@@ -1217,6 +1265,8 @@ import OSLog
         activeWorkoutWeekday = weekday ?? todayWeekday
         if kind == .strength {
             completedStrengthSets = []
+            sessionLiftLaps = []
+            liftLapStartedAt = [:]
         }
     }
 
@@ -1249,11 +1299,15 @@ import OSLog
                 for exercise in day.exercises {
                     let doneSets = completedSets(for: exercise.id)
                     guard doneSets > 0 else { continue }
+                    let efforts = completedStrengthSets
+                        .first(where: { $0.exerciseID == exercise.id })?
+                        .workingEfforts ?? []
                     addTodayLift(
                         name: exercise.name,
                         sets: doneSets,
                         reps: exercise.reps,
-                        weightKg: exercise.tracksWeight ? exercise.weightKg : 0.0
+                        weightKg: exercise.tracksWeight ? exercise.weightKg : 0.0,
+                        workingEfforts: efforts
                     )
                 }
             }
@@ -1273,10 +1327,12 @@ import OSLog
         activeWorkoutKind = nil
         activeWorkoutWeekday = nil
         completedStrengthSets = []
+        sessionLiftLaps = []
+        liftLapStartedAt = [:]
     }
 
     var todayWeekday: Weekday {
-        Weekday(rawValue: Calendar.current.component(.weekday, from: now)) ?? .monday
+        Weekday(rawValue: Calendar.current.component(.weekday, from: Date())) ?? .monday
     }
 
     var todayStrengthDay: StrengthDayPlan {
@@ -1375,10 +1431,15 @@ import OSLog
     func activityDisplayLabel(_ activity: DailyWorkoutActivity) -> String {
         switch activity.kind {
         case .lift:
+            let base: String
             if activity.weightKg > 0 {
-                return "\(activity.name) \(activity.sets)×\(activity.reps) @ \(liftWeightLabel(activity.weightKg))"
+                base = "\(activity.name) \(activity.sets)×\(activity.reps) @ \(liftWeightLabel(activity.weightKg))"
+            } else {
+                base = "\(activity.name) \(activity.sets)×\(activity.reps)"
             }
-            return "\(activity.name) \(activity.sets)×\(activity.reps)"
+            let marks = activity.workingEfforts.filter { !$0.isEmpty }
+            if marks.isEmpty { return base }
+            return base + " " + marks.joined(separator: " ")
         case .walk:
             if activity.minutes > 0 {
                 return "Walked \(activity.minutes) min"
@@ -1495,13 +1556,27 @@ import OSLog
         appendTodayActivity(.walk(minutes: minutes))
     }
 
-    func addTodayLift(name: String, sets: Int, reps: Int, weightKg: Double) {
+    func addTodayLift(
+        name: String,
+        sets: Int,
+        reps: Int,
+        weightKg: Double,
+        workingEfforts: [String] = []
+    ) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         if dailyWorkoutLog(for: now) == nil {
             ensureTodayWorkoutPick()
         }
-        appendTodayActivity(.lift(name: trimmed, sets: max(1, sets), reps: max(1, reps), weightKg: max(0.0, weightKg)))
+        appendTodayActivity(
+            .lift(
+                name: trimmed,
+                sets: max(1, sets),
+                reps: max(1, reps),
+                weightKg: max(0.0, weightKg),
+                workingEfforts: workingEfforts
+            )
+        )
         if var pick = todayWorkoutPick, pick.dayKey == todayWorkoutDayKey, pick.isOffDay {
             pick.focus = trimmed
             pick.isRestDay = false
@@ -1612,11 +1687,11 @@ import OSLog
     }
 
     @MainActor
-    private func checkDailyWorkoutOnTick() {
+    private func checkDailyWorkoutOnTick(at date: Date) {
         let calendar = Calendar.current
-        let todayKey = todayWorkoutDayKey
-        let hour = calendar.component(.hour, from: now)
-        let minute = calendar.component(.minute, from: now)
+        let todayKey = Self.dayKey(for: date)
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
 
         if let pick = todayWorkoutPick, pick.dayKey != todayKey {
             finalizeWorkoutDay(dayKey: pick.dayKey, pick: pick, passive: true)
@@ -1699,12 +1774,41 @@ import OSLog
         upsertStrengthDay(day)
     }
 
-    func updateStrengthExercise(_ weekday: Weekday, exercise: StrengthExercise) {
+    func updateStrengthExercise(_ weekday: Weekday, exercise: StrengthExercise, syncAcrossDays: Bool = true) {
         var day = strengthDay(for: weekday)
         day.exercises = day.exercises.map { item in
             item.id == exercise.id ? exercise : item
         }
         upsertStrengthDay(day)
+
+        guard syncAcrossDays else { return }
+        let key = StrengthExercise.normalizedLiftKey(exercise.name)
+        guard !key.isEmpty else { return }
+
+        var plan = strengthPlan
+        plan.days = plan.days.map { planDay in
+            var next = planDay
+            next.exercises = next.exercises.map { item in
+                guard item.id != exercise.id,
+                      StrengthExercise.normalizedLiftKey(item.name) == key else {
+                    return item
+                }
+                var synced = item
+                synced.sets = exercise.sets
+                synced.reps = exercise.reps
+                synced.weightKg = exercise.weightKg
+                synced.includeWarmUp = exercise.includeWarmUp
+                synced.tracksWeight = exercise.tracksWeight
+                return synced
+            }
+            return next
+        }
+        strengthPlan = plan
+    }
+
+    func applyStrengthTemplate(_ template: StrengthWeekPlan) {
+        strengthPlan = template
+        refreshWorkoutNudges()
     }
 
     func deleteStrengthExercise(_ weekday: Weekday, id: UUID) {
@@ -1715,35 +1819,133 @@ import OSLog
 
     func adjustStrengthWeight(_ weekday: Weekday, id: UUID, deltaDisplay: Double) {
         var day = strengthDay(for: weekday)
-        day.exercises = day.exercises.map { item in
-            guard item.id == id else { return item }
-            var updated = item
-            let next = max(0.0, displayWeight(item.weightKg) + deltaDisplay)
-            updated.weightKg = kilogramsFromDisplay(next)
-            return updated
+        guard let index = day.exercises.firstIndex(where: { $0.id == id }) else { return }
+        var updated = day.exercises[index]
+        let next = max(0.0, displayWeight(updated.weightKg) + deltaDisplay)
+        updated.weightKg = kilogramsFromDisplay(next)
+        updateStrengthExercise(weekday, exercise: updated, syncAcrossDays: true)
+    }
+
+    /// Warm-ups rounded to nearest plate step (5 lb / 2 kg). Deadlifts start at 10 display units.
+    func warmUpSets(for exercise: StrengthExercise) -> [(weightKg: Double, reps: Int)] {
+        guard exercise.includeWarmUp, exercise.tracksWeight else { return [] }
+        let workingDisplay = displayWeight(exercise.weightKg)
+        let barDisplay = exercise.isDeadliftFamily ? 10.0 : 0.0
+        let raw: [(Double, Int)] = [
+            (barDisplay, 10),
+            (workingDisplay * 0.50, 5),
+            (workingDisplay * 0.75, 3),
+        ]
+        return raw.map { display, reps in
+            (roundDisplayWeightToPlate(display), reps)
         }
-        upsertStrengthDay(day)
+    }
+
+    func roundDisplayWeightToPlate(_ displayValue: Double) -> Double {
+        let step = liftWeightStep
+        let rounded = (displayValue / step).rounded() * step
+        return kilogramsFromDisplay(max(0.0, rounded))
     }
 
     func completedSets(for exerciseID: UUID) -> Int {
         completedStrengthSets.first { $0.exerciseID == exerciseID }?.completedSets ?? 0
     }
 
-    /// Advance to the next set (warm-up or working). Taps 0…warmUp.count-1 are warm-ups; the rest are working sets.
-    func tapStrengthSet(for exercise: StrengthExercise) {
+    /// Advance to the next set (warm-up or working). Starts / finishes per-lift lap clocks.
+    /// Returns true if this tap completed the whole lift (for splash UI).
+    @discardableResult
+    func tapStrengthSet(for exercise: StrengthExercise) -> Bool {
         let current = completedSets(for: exercise.id)
-        guard current < exercise.totalSessionTaps else { return }
+        guard current < exercise.totalSessionTaps else { return false }
+
+        if current == 0, liftLapStartedAt[exercise.id] == nil {
+            liftLapStartedAt[exercise.id] = now
+        }
+
         setCompletedSets(current + 1, for: exercise.id)
+        let finished = isStrengthExerciseDone(exercise)
+        if finished {
+            finalizeLiftLap(for: exercise)
+        }
+        return finished
+    }
+
+    func workingSetEffort(for exercise: StrengthExercise, workingIndex: Int) -> LiftSetEffort {
+        guard let record = completedStrengthSets.first(where: { $0.exerciseID == exercise.id }),
+              workingIndex >= 0,
+              workingIndex < record.workingEfforts.count,
+              let effort = LiftSetEffort(rawValue: record.workingEfforts[workingIndex]) else {
+            return .none
+        }
+        return effort
+    }
+
+    func cycleWorkingSetEffort(for exercise: StrengthExercise, workingIndex: Int) {
+        guard workingIndex >= 0, workingIndex < exercise.sets else { return }
+        guard completedWorkingSets(for: exercise) > workingIndex else { return }
+
+        var efforts = completedStrengthSets.first(where: { $0.exerciseID == exercise.id })?.workingEfforts ?? []
+        while efforts.count <= workingIndex {
+            efforts.append(LiftSetEffort.none.rawValue)
+        }
+        let current = LiftSetEffort(rawValue: efforts[workingIndex]) ?? .none
+        let next: LiftSetEffort
+        switch current {
+        case .none: next = .plusPlus
+        case .plusPlus: next = .minusMinus
+        case .minusMinus: next = .none
+        }
+        efforts[workingIndex] = next.rawValue
+        setWorkingEfforts(efforts, for: exercise.id)
+    }
+
+    /// Set (or toggle off) effort on a completed working set. Used by ++ / -- chips.
+    func setWorkingSetEffort(for exercise: StrengthExercise, workingIndex: Int, effort: LiftSetEffort) {
+        guard effort != .none else { return }
+        guard workingIndex >= 0, workingIndex < exercise.sets else { return }
+        guard completedWorkingSets(for: exercise) > workingIndex else { return }
+
+        var efforts = completedStrengthSets.first(where: { $0.exerciseID == exercise.id })?.workingEfforts ?? []
+        while efforts.count <= workingIndex {
+            efforts.append(LiftSetEffort.none.rawValue)
+        }
+        let current = LiftSetEffort(rawValue: efforts[workingIndex]) ?? .none
+        efforts[workingIndex] = (current == effort ? LiftSetEffort.none : effort).rawValue
+        setWorkingEfforts(efforts, for: exercise.id)
+    }
+
+    func liftLapElapsedSeconds(for exercise: StrengthExercise) -> Int? {
+        if let finished = sessionLiftLaps.first(where: { $0.exerciseID == exercise.id }) {
+            return finished.elapsedSeconds
+        }
+        guard let started = liftLapStartedAt[exercise.id] else { return nil }
+        // Use Date() so the whole workout screen isn't subscribed to `now` ticks.
+        return max(0, Int(Date().timeIntervalSince(started)))
+    }
+
+    /// In-progress lap start for a lift (nil once the lap is finalized).
+    func liveLiftLapStartDate(for exercise: StrengthExercise) -> Date? {
+        guard sessionLiftLaps.first(where: { $0.exerciseID == exercise.id }) == nil else { return nil }
+        return liftLapStartedAt[exercise.id]
+    }
+
+    func bestLapSeconds(forLiftNamed name: String) -> Int? {
+        let key = StrengthExercise.normalizedLiftKey(name)
+        return liftLapBests.first { $0.nameKey == key }?.bestSeconds
+    }
+
+    func lapTimeLabel(_ seconds: Int) -> String {
+        formatMinutesSeconds(TimeInterval(seconds))
     }
 
     /// How many warm-up taps have been completed for this exercise.
     func completedWarmUps(for exercise: StrengthExercise) -> Int {
-        min(completedSets(for: exercise.id), exercise.warmUpProgression.count)
+        min(completedSets(for: exercise.id), warmUpSets(for: exercise).count)
     }
 
     /// How many working-set taps have been completed.
     func completedWorkingSets(for exercise: StrengthExercise) -> Int {
-        max(0, completedSets(for: exercise.id) - exercise.warmUpProgression.count)
+        max(0, completedSets(for: exercise.id) - warmUpSets(for: exercise).count)
     }
 
     func isWarmUpDone(_ index: Int, for exercise: StrengthExercise) -> Bool {
@@ -1762,12 +1964,66 @@ import OSLog
         exercises.reduce(0) { $0 + $1.sets }
     }
 
+    private func finalizeLiftLap(for exercise: StrengthExercise) {
+        guard let started = liftLapStartedAt[exercise.id] else { return }
+        let seconds = max(1, Int(now.timeIntervalSince(started)))
+        let key = StrengthExercise.normalizedLiftKey(exercise.name)
+        let previousBest = liftLapBests.first { $0.nameKey == key }?.bestSeconds
+        let beatBest = previousBest.map { seconds < $0 } ?? true
+
+        if let index = sessionLiftLaps.firstIndex(where: { $0.exerciseID == exercise.id }) {
+            sessionLiftLaps[index].elapsedSeconds = seconds
+            sessionLiftLaps[index].beatBest = beatBest
+        } else {
+            sessionLiftLaps.append(
+                SessionLiftLap(
+                    id: UUID(),
+                    exerciseID: exercise.id,
+                    name: exercise.name,
+                    elapsedSeconds: seconds,
+                    beatBest: beatBest
+                )
+            )
+        }
+
+        if let index = liftLapBests.firstIndex(where: { $0.nameKey == key }) {
+            var best = liftLapBests[index]
+            best.lastSeconds = seconds
+            best.displayName = exercise.name
+            best.updatedAt = now
+            if seconds < best.bestSeconds {
+                best.bestSeconds = seconds
+            }
+            liftLapBests[index] = best
+        } else {
+            liftLapBests.append(
+                LiftLapBest(
+                    nameKey: key,
+                    displayName: exercise.name,
+                    bestSeconds: seconds,
+                    lastSeconds: seconds,
+                    updatedAt: now
+                )
+            )
+        }
+    }
+
     private func setCompletedSets(_ count: Int, for exerciseID: UUID) {
         if let index = completedStrengthSets.firstIndex(where: { $0.exerciseID == exerciseID }) {
             completedStrengthSets[index].completedSets = count
         } else {
             completedStrengthSets.append(
                 CompletedStrengthSet(exerciseID: exerciseID, completedSets: count)
+            )
+        }
+    }
+
+    private func setWorkingEfforts(_ efforts: [String], for exerciseID: UUID) {
+        if let index = completedStrengthSets.firstIndex(where: { $0.exerciseID == exerciseID }) {
+            completedStrengthSets[index].workingEfforts = efforts
+        } else {
+            completedStrengthSets.append(
+                CompletedStrengthSet(exerciseID: exerciseID, completedSets: 0, workingEfforts: efforts)
             )
         }
     }
@@ -1799,6 +2055,8 @@ import OSLog
     func deleteWorkout(_ entry: WorkoutEntry) {
         workoutEntries.removeAll { $0.id == entry.id }
     }
+
+    // MARK: - Alarms
 
     func refreshAlarms() {
         let snapshot = alarms
@@ -1981,6 +2239,7 @@ private struct PersistedState: Codable {
     var dailyWorkoutLogs: [DailyWorkoutLog]?
     var todayWorkoutPick: TodayWorkoutPick?
     var completedStrengthSets: [CompletedStrengthSet]?
+    var liftLapBests: [LiftLapBest]?
     var activeWorkoutWeekday: Weekday?
     var completedStrengthIDs: [UUID]?
     var isSleeping: Bool?
@@ -2025,6 +2284,7 @@ extension WellnessStore {
                 dailyWorkoutLogs: [],
                 todayWorkoutPick: nil,
                 completedStrengthSets: [],
+                liftLapBests: [],
                 activeWorkoutWeekday: nil,
                 isSleeping: false,
                 sleepStartedAt: nil,
@@ -2041,6 +2301,28 @@ extension WellnessStore {
     }
 
     private func save() {
+        pendingDiskSaveTask?.cancel()
+        pendingDiskSaveTask = nil
+        persistToDisk()
+    }
+
+    /// During a live workout, coalesce set-complete writes so we don't encode+write the
+    /// whole local JSON file on every tap (timers are never uploaded — only this on-device file).
+    private func saveAfterWorkoutEdit() {
+        guard isWorkingOut else {
+            save()
+            return
+        }
+        pendingDiskSaveTask?.cancel()
+        pendingDiskSaveTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            guard !Task.isCancelled else { return }
+            self?.persistToDisk()
+            self?.pendingDiskSaveTask = nil
+        }
+    }
+
+    private func persistToDisk() {
         let state = PersistedState(
             profile: profile,
             sleepEntries: sleepEntries,
@@ -2062,6 +2344,7 @@ extension WellnessStore {
             dailyWorkoutLogs: dailyWorkoutLogs,
             todayWorkoutPick: todayWorkoutPick,
             completedStrengthSets: completedStrengthSets,
+            liftLapBests: liftLapBests,
             activeWorkoutWeekday: activeWorkoutWeekday,
             isSleeping: isSleeping,
             sleepStartedAt: sleepStartedAt,

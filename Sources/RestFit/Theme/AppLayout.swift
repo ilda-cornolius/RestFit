@@ -21,6 +21,7 @@ enum AppLayout {
 
     static let scrollTailPadding: CGFloat = 12.0
 
+    /// Soft crossfade — no slide/scale so tab changes feel transparent.
     static var tabScreenTransition: AnyTransition {
         AnyTransition.opacity
     }
@@ -29,13 +30,13 @@ enum AppLayout {
         AnyTransition.opacity
     }
 
-    static let tabSwitchAnimation: Animation = .easeInOut(duration: 0.28)
+    static let tabSwitchAnimation: Animation = .easeOut(duration: 0.34)
 
-    static let workoutSessionAnimation: Animation = .easeInOut(duration: 0.34)
+    static let workoutSessionAnimation: Animation = .easeOut(duration: 0.30)
 
     static var keyboardTransition: AnyTransition {
         AnyTransition.opacity
     }
 
-    static let keyboardAnimation: Animation = .easeInOut(duration: 0.34)
+    static let keyboardAnimation: Animation = .easeOut(duration: 0.28)
 }

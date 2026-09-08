@@ -3,11 +3,13 @@ import SwiftUI
 private enum RestMiniGameKind: String, CaseIterable {
     case ticTacToe
     case orbRush
+    case studyClicker
 
     var title: String {
         switch self {
         case .ticTacToe: "Tic-tac-toe"
         case .orbRush: "Orb rush"
+        case .studyClicker: "Study RPG"
         }
     }
 
@@ -15,59 +17,227 @@ private enum RestMiniGameKind: String, CaseIterable {
         switch self {
         case .ticTacToe: "You are X vs the AI"
         case .orbRush: "Tap the mint orb before it jumps"
+        case .studyClicker: "Tap notes to level up your sprite"
         }
     }
 }
 
 /// Rest-time mini-games on the active workout screen.
-struct WorkoutRestMiniGame: View {
+/// Pass an increasing `restKick` when a set is completed to start the rest timer + shuffle countdown.
+/// Keep lift rows OUT of `middle` — nesting them here made every set tap rebuild the whole list.
+struct WorkoutRestMiniGame<Middle: View>: View {
+    /// Parent increments this after each completed set to restart rest + game pick.
+    var restKick: Int = 0
+    @ViewBuilder var middle: () -> Middle
+
     @State private var kind = RestMiniGameKind.allCases.randomElement() ?? .ticTacToe
     @State private var gameSeed = 0
+    @State private var restSecondsRemaining: Int = 0
+    @State private var isResting = false
+    @State private var isShuffling = false
+    @State private var shuffleCountdown = 0
+    @State private var shuffleFlashTitle = "…"
+    @State private var restTickToken = 0
+    @State private var shuffleToken = 0
+
+    /// Fixed rest between working sets.
+    private let restDurationSeconds = 180
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if isResting {
+                restTimerSection
+                    .padding(12)
+                    .background(RestFitTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+
+            middle()
+
+            if isResting || isShuffling {
+                gameSection
+                    .padding(12)
+                    .background(RestFitTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+        }
+        .onChange(of: restKick) { _, newValue in
+            guard newValue > 0 else { return }
+            beginRestAfterSet()
+        }
+    }
+
+    // MARK: - Rest timer
+
+    private var restTimerSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Rest game")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text(kind.subtitle)
-                        .font(.caption2)
-                        .foregroundStyle(RestFitTheme.muted)
-                }
-                Spacer(minLength: 8)
-                Text(kind.title)
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(RestFitTheme.mint)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(RestFitTheme.mint.opacity(0.15))
-                    .clipShape(Capsule())
-                Button("Shuffle") {
-                    pickRandomGame()
+            HStack {
+                Text("Rest · 3:00")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                Spacer()
+                Button("Skip") {
+                    endRest()
                 }
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(RestFitTheme.mint)
                 .buttonStyle(.plain)
             }
 
-            Group {
-                switch kind {
-                case .ticTacToe:
-                    RestTicTacToeView()
-                        .id(gameSeed)
-                case .orbRush:
-                    RestOrbRushView()
-                        .id(gameSeed)
+            Text(restClockLabel)
+                .font(.system(size: 40, weight: .bold, design: .rounded))
+                .foregroundStyle(restSecondsRemaining == 0 ? RestFitTheme.coral : RestFitTheme.mint)
+                .frame(maxWidth: .infinity)
+
+            Text(restSecondsRemaining == 0 ? "Rest done — next set" : "Resting between sets…")
+                .font(.caption2)
+                .foregroundStyle(RestFitTheme.muted)
+                .frame(maxWidth: .infinity)
+        }
+        .task(id: restTickToken) {
+            guard isResting else { return }
+            while !Task.isCancelled, isResting, restSecondsRemaining > 0 {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                await MainActor.run {
+                    guard isResting, restSecondsRemaining > 0 else { return }
+                    restSecondsRemaining -= 1
+                }
+            }
+            guard !Task.isCancelled, isResting, restSecondsRemaining == 0 else { return }
+            try? await Task.sleep(for: .seconds(2))
+            if Task.isCancelled { return }
+            await MainActor.run {
+                if isResting, restSecondsRemaining == 0 {
+                    endRest()
                 }
             }
         }
-        .padding(12)
-        .background(RestFitTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    private func pickRandomGame() {
+    private var restClockLabel: String {
+        let minutes = restSecondsRemaining / 60
+        let seconds = restSecondsRemaining % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    // MARK: - Game + shuffle countdown
+
+    private var gameSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Rest game")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text(isShuffling ? "Picking a game…" : kind.subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(RestFitTheme.muted)
+                }
+                Spacer(minLength: 8)
+                if isShuffling {
+                    Text("\(shuffleCountdown)")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(RestFitTheme.mint)
+                        .frame(minWidth: 28)
+                } else {
+                    Text(kind.title)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(RestFitTheme.mint)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(RestFitTheme.mint.opacity(0.15))
+                        .clipShape(Capsule())
+                    Button("Shuffle") {
+                        startShuffleCountdown()
+                    }
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.mint)
+                    .buttonStyle(.plain)
+                    .disabled(isShuffling)
+                }
+            }
+
+            if isShuffling {
+                shuffleCountdownCard
+            } else {
+                Group {
+                    switch kind {
+                    case .ticTacToe:
+                        RestTicTacToeView()
+                            .id(gameSeed)
+                    case .orbRush:
+                        RestOrbRushView()
+                            .id(gameSeed)
+                    case .studyClicker:
+                        RestStudyClickerView()
+                            .id(gameSeed)
+                    }
+                }
+            }
+        }
+        .task(id: shuffleToken) {
+            guard isShuffling else { return }
+            await runShuffleCountdown()
+        }
+    }
+
+    private var shuffleCountdownCard: some View {
+        VStack(spacing: 12) {
+            Text("\(shuffleCountdown)")
+                .font(.system(size: 52, weight: .bold, design: .rounded))
+                .foregroundStyle(RestFitTheme.mint)
+                .frame(maxWidth: .infinity)
+
+            Text(shuffleFlashTitle)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(RestFitTheme.canvas.opacity(0.55))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            Text(shuffleCountdown > 0 ? "Randomizing…" : "Let’s play!")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(RestFitTheme.muted)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    // MARK: - Actions
+
+    private func beginRestAfterSet() {
+        isResting = true
+        restSecondsRemaining = restDurationSeconds
+        restTickToken += 1
+        startShuffleCountdown()
+    }
+
+    private func endRest() {
+        isResting = false
+        restSecondsRemaining = 0
+        restTickToken += 1
+    }
+
+    private func startShuffleCountdown() {
+        isShuffling = true
+        shuffleCountdown = 3
+        shuffleFlashTitle = RestMiniGameKind.allCases.randomElement()?.title ?? "…"
+        shuffleToken += 1
+    }
+
+    @MainActor
+    private func runShuffleCountdown() async {
+        // Light countdown — avoid flashing titles every 200ms (that lagged set taps on Fold).
+        for second in stride(from: 3, through: 1, by: -1) {
+            guard !Task.isCancelled, isShuffling else { return }
+            shuffleCountdown = second
+            shuffleFlashTitle = RestMiniGameKind.allCases.randomElement()?.title ?? "…"
+            try? await Task.sleep(for: .seconds(1))
+        }
+
+        guard !Task.isCancelled, isShuffling else { return }
+
         var next = RestMiniGameKind.allCases.randomElement() ?? .ticTacToe
         if RestMiniGameKind.allCases.count > 1 {
             while next == kind {
@@ -75,7 +245,12 @@ struct WorkoutRestMiniGame: View {
             }
         }
         kind = next
+        shuffleFlashTitle = next.title
+        shuffleCountdown = 0
         gameSeed += 1
+        try? await Task.sleep(for: .milliseconds(350))
+        guard !Task.isCancelled else { return }
+        isShuffling = false
     }
 }
 
@@ -374,5 +549,94 @@ private struct RestOrbRushView: View {
         }
         targetIndex = next
         pulse = false
+    }
+}
+
+// MARK: - Study notes RPG clicker
+
+private struct RestStudyClickerView: View {
+    @State private var notes = 0
+    @State private var level = 1
+    @State private var xp = 0
+    @State private var bounce = false
+    @State private var frame = 0
+
+    private var xpToNext: Int { level * 8 }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("Lv \(level)")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(RestFitTheme.mint)
+                Spacer()
+                Text("\(notes) notes")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RestFitTheme.muted)
+            }
+
+            Button {
+                tapStudy()
+            } label: {
+                VStack(spacing: 8) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(RestFitTheme.canvas.opacity(0.65))
+                            .frame(height: 96)
+                        Text(spriteGlyph)
+                            .font(.system(size: bounce ? 44.0 : 36.0, weight: .bold))
+                            .foregroundStyle(RestFitTheme.mint)
+                            .scaleEffect(bounce ? 1.12 : 1.0)
+                            .animation(.easeOut(duration: 0.12), value: bounce)
+                    }
+                    Text("Tap to study")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(RestFitTheme.faint)
+                }
+            }
+            .buttonStyle(.plain)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(RestFitTheme.line.opacity(0.7))
+                    Capsule()
+                        .fill(RestFitTheme.mint)
+                        .frame(width: max(8.0, geo.size.width * (Double(xp) / Double(max(1, xpToNext)))))
+                }
+            }
+            .frame(height: 8)
+
+            Text("XP \(xp)/\(xpToNext)")
+                .font(.caption2)
+                .foregroundStyle(RestFitTheme.faint)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(420))
+                if Task.isCancelled { break }
+                frame = (frame + 1) % 4
+            }
+        }
+    }
+
+    private var spriteGlyph: String {
+        switch frame {
+        case 0: return "•"
+        case 1: return "◆"
+        case 2: return "★"
+        default: return "▲"
+        }
+    }
+
+    private func tapStudy() {
+        notes += 1
+        xp += 1
+        bounce.toggle()
+        if xp >= xpToNext {
+            xp = 0
+            level += 1
+        }
     }
 }

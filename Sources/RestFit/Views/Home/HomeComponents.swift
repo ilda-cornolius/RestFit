@@ -155,14 +155,15 @@ struct WelcomeSection: View {
 
 struct FastingStatusCard: View {
     @Environment(WellnessStore.self) private var store
+    /// Local pulse — keeps the fast clock moving without store.now thrashing the whole app.
+    @State private var pulse = Date()
 
     var body: some View {
         SurfaceCard {
             ZStack(alignment: .topTrailing) {
                 Circle()
-                    .fill(RestFitTheme.mint.opacity(0.1))
-                    .frame(width: 176, height: 176)
-                    .blur(radius: 40)
+                    .fill(RestFitTheme.mint.opacity(0.12))
+                    .frame(width: 140, height: 140)
                     .offset(x: 40, y: -80)
 
                 VStack(spacing: 0) {
@@ -179,6 +180,7 @@ struct FastingStatusCard: View {
                                 Text(store.fastingTimerLabel)
                                     .font(.system(size: 28, weight: .bold, design: .rounded))
                                     .foregroundStyle(.white)
+                                    .id(Int(pulse.timeIntervalSince1970))
                                 Text("/ \(store.fastingTargetShortLabel)")
                                     .font(.caption)
                                     .foregroundStyle(RestFitTheme.muted)
@@ -194,6 +196,7 @@ struct FastingStatusCard: View {
 
                         FastingRingView(progress: store.fastingProgress)
                             .frame(width: 112, height: 112)
+                            .id(Int(pulse.timeIntervalSince1970))
                     }
 
                     Divider()
@@ -228,11 +231,19 @@ struct FastingStatusCard: View {
                 }
             }
         }
+        .task(id: store.isFasting) {
+            guard store.isFasting else { return }
+            while !Task.isCancelled {
+                pulse = Date()
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
     }
 }
 
 struct FastingCircleButton: View {
     @Environment(WellnessStore.self) private var store
+    @State private var pulse = Date()
 
     var body: some View {
         VStack(spacing: 20) {
@@ -243,9 +254,11 @@ struct FastingCircleButton: View {
                 Text(store.fastingTimerLabel)
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
+                    .id(Int(pulse.timeIntervalSince1970))
                 Text("of \(store.fastingTargetShortLabel) · meal in \(store.nextMealLabel)")
                     .font(.subheadline)
                     .foregroundStyle(RestFitTheme.muted)
+                    .id(Int(pulse.timeIntervalSince1970))
             } else {
                 Text("Ready to fast")
                     .font(.title.weight(.semibold))
@@ -290,11 +303,19 @@ struct FastingCircleButton: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
+        .task(id: store.isFasting) {
+            guard store.isFasting else { return }
+            while !Task.isCancelled {
+                pulse = Date()
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
     }
 }
 
 struct SleepBedCircleButton: View {
     @Environment(WellnessStore.self) private var store
+    @State private var pulse = Date()
 
     var body: some View {
         VStack(spacing: 20) {
@@ -305,6 +326,7 @@ struct SleepBedCircleButton: View {
                 Text(store.sleepElapsedLabel)
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
+                    .id(Int(pulse.timeIntervalSince1970))
             } else {
                 Text("Ready for bed")
                     .font(.title.weight(.semibold))
@@ -349,6 +371,13 @@ struct SleepBedCircleButton: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
+        .task(id: store.isSleeping) {
+            guard store.isSleeping else { return }
+            while !Task.isCancelled {
+                pulse = Date()
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
     }
 }
 

@@ -8,6 +8,104 @@ Related deep dives: [`GOOGLE_SIGNIN_LESSONS_LEARNED.md`](./GOOGLE_SIGNIN_LESSONS
 
 ## Solved issues log
 
+### Sep 7, 2026 — Pressable ++ easy / -- heavy effort chips
+
+**Ask:** During an active session, `++ easy` and `-- heavy` should be pressable, highlight when selected, and save with workout data.
+
+**Cause:** The row only showed a faint legend. Effort already lived on `CompletedStrengthSet.workingEfforts` (persisted mid-session via `save()`), but finish-workout logging dropped it when writing `DailyWorkoutActivity` lifts.
+
+**Fix:**
+- Replaced the legend with mint/coral pressable chips that toggle effort on the last completed working set (tap again to clear). Per-set marks still cycle on tap.
+- Copied `workingEfforts` into `DailyWorkoutActivity` on `finishWorkout` / `addTodayLift` so history survives restart; labels show non-empty `++`/`--` marks.
+
+**Touchpoints:** `StrengthPlanView.swift`, `WellnessStore.swift`, `WellnessModels.swift`
+
+---
+
+### Sep 7, 2026 — Bigger set marks + auto lift icons in session
+
+**Ask:** Larger matching ▲/✓ set checks; auto icons for lifts like bench during the workout session. Later: restore old icons — triangles that become green **checkmark-in-circle**, with a triangle separator between warm-ups and working sets.
+
+**Fix:** Incomplete = large black **▲**; done = **black triangle with white ✓ inside**. Middle warm-up → work separator = rotated black **▲**. Lift rows show emoji from `LiftNameSuggestions.sessionIcon`.
+
+**Correction:** The real pre-tap icon was Skip’s dark **caution** triangle (`exclamationmark.triangle.fill` / Warning) — historically bare SF Symbol `circle` fell back to that. Done stays mint **`checkmark.circle.fill`**.
+
+---
+
+### Sep 6, 2026 — Restored triangle set-check marks
+
+**Ask:** Not the mint progress dots — the older set checks looked like triangles.
+
+**Cause:** Incomplete sets used SF Symbol `circle`, which Skip maps to a warning triangle on Android.
+
+**Fix:** Brought back the warm-up → working-set column checks. Incomplete = **▲**, done = **✓** (text glyphs so Android stays consistent).
+
+---
+
+### Sep 6, 2026 — Restored classic mint-dot set checks
+
+**Ask:** Prefer the old set/rep check design over the warm-up column grid.
+
+**Note:** Superseded — user meant triangle column checks, not mint dots.
+
+---
+
+### Sep 6, 2026 — Session lifts above rest mini-games
+
+**Ask:** Tappable lifts during an active workout should sit above the rest mini-games.
+
+**Fix:** In `activeWorkoutSessionCard`, order is now timer → lift rows → lap board → `WorkoutRestMiniGame` → Cancel/Finish. Rest UI stays below the lifts so set taps stay reachable without scrolling past games.
+
+---
+
+### Sep 6, 2026 — Load established programs (Starting Strength, StrongLifts, …)
+
+**Ask:** Select pre-established plans like Starting Strength; look up days/reps and fill the workout page.
+
+**Approach:** Curated in-app catalog (not live internet scrape — more reliable offline and avoids brittle site parsing). **Load program** opens a sheet with:
+
+- Starting Strength (A/B, Mon/Wed/Fri)
+- StrongLifts 5×5
+- Push/Pull/Legs, Upper/Lower, Full body
+
+Each replaces the week plan with focus labels, lifts, sets, and reps. Weights are starter placeholders.
+
+**Touchpoints:** `WorkoutProgramCatalog` / templates in `WellnessModels.swift`, `WorkoutProgramPickerSheet.swift`, `StrengthPlanView` “Load program”
+
+---
+
+### Sep 5, 2026 — Workout lap times, effort ++/--, warm-up plates, templates, Study RPG
+
+**Shipped**
+
+- **F1-style lift times:** each lift gets a lap clock during the session; finished times board + personal bests by lift name
+- **++ / -- effort** on completed working sets (green could do more / coral too heavy), saved with set data
+- **Warm-ups** round to plate steps (5 lb / 2 kg); **deadlift** warm-up bar starts at **10** (display units)
+- **Cross-day sync:** editing weight/reps/sets on one day updates the same lift name on other weekdays
+- **Load template** button: Push/Pull/Legs, Upper/Lower, Full body
+- **Lift-complete splash** with lap time / PB
+- **Session reps** +/- steppers
+- **Study RPG** rest mini-game (tap-to-level sprite) in the shuffle pool
+
+**Touchpoints:** `WellnessModels.swift`, `WellnessStore.swift`, `StrengthPlanView.swift`, `WorkoutRestMiniGame.swift`
+
+---
+
+### Sep 5, 2026 — Rest timer + mini-game shuffle countdown between sets
+
+**Ask:** Randomize rest mini-game with a countdown; add a rest timer between sets.
+
+**What shipped**
+
+- Active workout card shows **Rest between sets** with 60 / 90 / 120s presets + Start / Skip
+- Completing a set (`tapStrengthSet`) bumps `restKick` → starts rest timer **and** a **3→2→1** shuffle that flashes game titles, then reveals Tic-tac-toe or Orb rush
+- Shuffle can also be triggered manually with **Shuffle**
+- When rest hits `0:00`, UI holds **Rest done — next set** for ~2s before returning to presets
+
+**Touchpoints:** `WorkoutRestMiniGame.swift`, `StrengthPlanView.swift` (`restKick`)
+
+---
+
 ### Aug 29, 2026 — Debug Google Sign-In: “Checking info…” loop → “Google blocked debug Sign-In”
 
 **Symptoms**

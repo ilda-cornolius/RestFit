@@ -10,28 +10,44 @@ struct WorkoutMonthDay: Identifiable, Hashable {
 }
 
 enum WorkoutCalendar {
-    static func monthTitle(_ date: Date) -> String {
+    private static let monthTitleFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private static let dayTitleFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE, MMM d"
+        return formatter
+    }()
+
+    private static let compactDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter
+    }()
+
+    private static let compactDateTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE MMM d h:mm a"
+        return formatter
+    }()
+
+    static func monthTitle(_ date: Date) -> String {
+        monthTitleFormatter.string(from: date)
     }
 
     static func dayTitle(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE, MMM d"
-        return formatter.string(from: date)
+        dayTitleFormatter.string(from: date)
     }
 
     static func compactDateTitle(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, yyyy"
-        return formatter.string(from: date)
+        compactDateFormatter.string(from: date)
     }
 
     static func compactDateTimeTitle(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE MMM d h:mm a"
-        return formatter.string(from: date)
+        compactDateTimeFormatter.string(from: date)
     }
 
     static func startOfMonth(_ date: Date) -> Date {

@@ -83,6 +83,7 @@ struct ContentView: View {
             }
         }
         .task {
+            // Alarm checks stay cheap; store.now only republishes when needed (see publishClock).
             while !Task.isCancelled {
                 store.tick()
                 try? await Task.sleep(for: .seconds(1))
@@ -101,7 +102,6 @@ struct ContentView: View {
 
                 ZStack {
                     tabContent
-                        .id(selectedTab)
                         .transition(AppLayout.tabScreenTransition)
                 }
                     .frame(maxWidth: contentMax)
@@ -119,20 +119,21 @@ struct ContentView: View {
                     .frame(maxWidth: contentMax)
                     .frame(maxWidth: .infinity)
             }
-            // Force a fresh layout tree when the Fold cover/main display size changes.
-            .id("main-\(Int(geo.size.width))x\(Int(geo.size.height))")
+            // Bucket size ids so tiny Fold chrome changes don't rebuild the whole tree.
+            .id("main-\(Int(geo.size.width / 48.0))x\(Int(geo.size.height / 48.0))")
         }
     }
 
-    /// Phone-like column on cover screens; wider readable column when unfolded / tablet.
+    /// Full width on phone / Fold cover; readable column when unfolded / tablet.
     private static func preferredContentWidth(for width: CGFloat) -> CGFloat {
         if width >= 900.0 {
             return min(760.0, width - 48.0)
         }
-        if width >= 600.0 {
-            return min(600.0, width - 32.0)
+        if width >= 680.0 {
+            return min(640.0, width - 40.0)
         }
-        return min(440.0, max(320.0, width))
+        // Cover / phone: use nearly full width so set columns aren't crushed.
+        return max(0.0, width - 8.0)
     }
 
     private func selectTab(_ tab: AppTab) {
