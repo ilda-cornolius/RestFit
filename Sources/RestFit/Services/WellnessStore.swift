@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import OSLog
 
-@Observable public final class WellnessStore {
+@Observable public final class WellnessStore: @unchecked Sendable {
     var profile: WellnessProfile {
         didSet { save() }
     }
@@ -113,6 +113,10 @@ import OSLog
     /// Coalesced disk write during live workouts (not observed — must live on the type, not an extension).
     @ObservationIgnored
     private var pendingDiskSaveTask: Task<Void, Never>?
+
+    /// Skip nested didSet saves while applying a multi-field update (e.g. startWorkout).
+    @ObservationIgnored
+    private var suspendDiskSaves = 0
 
     var isSignedIn: Bool { authUser != nil }
 
@@ -1259,6 +1263,8 @@ import OSLog
     }
 
     func startWorkout(_ kind: WorkoutKind, weekday: Weekday? = nil) {
+        // One disk write for the whole start — not one per field didSet.
+        suspendDiskSaves += 1
         activeWorkoutKind = kind
         workoutStartedAt = .now
         isWorkingOut = true
@@ -1268,6 +1274,8 @@ import OSLog
             sessionLiftLaps = []
             liftLapStartedAt = [:]
         }
+        suspendDiskSaves -= 1
+        save()
     }
 
     var activeStrengthDay: StrengthDayPlan {
@@ -2301,6 +2309,7 @@ extension WellnessStore {
     }
 
     private func save() {
+        guard suspendDiskSaves == 0 else { return }
         pendingDiskSaveTask?.cancel()
         pendingDiskSaveTask = nil
         persistToDisk()
@@ -2309,6 +2318,7 @@ extension WellnessStore {
     /// During a live workout, coalesce set-complete writes so we don't encode+write the
     /// whole local JSON file on every tap (timers are never uploaded — only this on-device file).
     private func saveAfterWorkoutEdit() {
+        guard suspendDiskSaves == 0 else { return }
         guard isWorkingOut else {
             save()
             return

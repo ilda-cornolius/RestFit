@@ -108,6 +108,8 @@ struct StrengthPlanView: View {
     @State private var showTemplatePicker = false
     /// Defer heavy charts so the workout tab appears quickly.
     @State private var showActivityCharts = false
+    /// Defer lift cards one frame after Start — avoids hitch mounting the whole deck at once.
+    @State private var showSessionLifts = false
 
     var body: some View {
         ScrollView {
@@ -145,19 +147,15 @@ struct StrengthPlanView: View {
                 ZStack {
                     if store.isWorkingOut {
                         workoutSessionContent
-                            .transition(AppLayout.workoutSessionTransition)
                     } else {
                         workoutPlanningContent
-                            .transition(AppLayout.workoutSessionTransition)
                     }
 
                     if let splash = liftSplashName {
                         liftFinishedSplash(name: splash)
-                            .transition(.opacity.combined(with: .scale))
+                            .transition(.opacity)
                     }
                 }
-                .animation(AppLayout.workoutSessionAnimation, value: store.isWorkingOut)
-                .animation(.easeOut(duration: 0.25), value: liftSplashName)
             }
             .padding(.bottom, keyboard.isPresented ? 360.0 : AppLayout.scrollTailPadding)
         }
@@ -168,13 +166,27 @@ struct StrengthPlanView: View {
             customFocus = store.strengthDay(for: selectedDay).focus
             resetDraftLift()
             restoreWorkoutSessionChrome()
+            if store.isWorkingOut {
+                showSessionLifts = true
+            }
             if !showActivityCharts {
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(60))
-                    withAnimation(.easeOut(duration: 0.28)) {
-                        showActivityCharts = true
-                    }
+                    showActivityCharts = true
                 }
+            }
+        }
+        .onChange(of: store.isWorkingOut) { _, working in
+            if working {
+                showSessionLifts = false
+                Task { @MainActor in
+                    // Let the session chrome paint first, then mount lift rows.
+                    try? await Task.sleep(for: .milliseconds(40))
+                    showSessionLifts = true
+                }
+            } else {
+                showSessionLifts = false
+                restKick = 0
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -272,9 +284,8 @@ struct StrengthPlanView: View {
         selectedDay = day
         activeWorkoutDay = day
         customFocus = store.strengthDay(for: day).focus
-        withAnimation(AppLayout.workoutSessionAnimation) {
-            store.startWorkout(kind, weekday: day)
-        }
+        // Instant swap — animated teardown of planning UI was hitching on Fold.
+        store.startWorkout(kind, weekday: day)
     }
 
     /// Prefer the selected day if it has lifts; otherwise the next planned training day.
@@ -308,17 +319,13 @@ struct StrengthPlanView: View {
     }
 
     private func cancelWorkoutAnimated() {
-        withAnimation(AppLayout.workoutSessionAnimation) {
-            store.cancelWorkout()
-            activeWorkoutDay = nil
-        }
+        store.cancelWorkout()
+        activeWorkoutDay = nil
     }
 
     private func finishWorkoutAnimated() {
-        withAnimation(AppLayout.workoutSessionAnimation) {
-            store.finishWorkout()
-            activeWorkoutDay = nil
-        }
+        store.finishWorkout()
+        activeWorkoutDay = nil
     }
 
     private var layoutToggle: some View {
@@ -1036,11 +1043,8 @@ struct StrengthPlanView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
 
-                // Rest timer → lift times → (game). Lifts stay outside so set taps don't rebuild them with rest chrome.
-                WorkoutRestMiniGame(restKick: restKick) {
-                    if !store.sessionLiftLaps.isEmpty || store.liftLapStartedAt.isEmpty == false {
-                        sessionLapBoard
-                    }
+                if !store.sessionLiftLaps.isEmpty || store.liftLapStartedAt.isEmpty == false {
+                    sessionLapBoard
                 }
 
                 if isStrength {
@@ -1064,17 +1068,18 @@ struct StrengthPlanView: View {
                                     .foregroundStyle(RestFitTheme.mint)
                             }
                             .buttonStyle(.plain)
-                        } else {
+                        } else if showSessionLifts {
                             VStack(spacing: 10) {
                                 ForEach(sessionLiftDeck) { exercise in
                                     sessionLiftRow(exercise)
-                                        .transition(.asymmetric(
-                                            insertion: .opacity.combined(with: .move(edge: .bottom)),
-                                            removal: .opacity.combined(with: .move(edge: .top))
-                                        ))
                                 }
                             }
-                            .animation(.easeInOut(duration: 0.38), value: sessionLiftDeckOrderKey)
+                            .animation(.easeInOut(duration: 0.28), value: sessionLiftDeckOrderKey)
+                        } else {
+                            ProgressView()
+                                .tint(RestFitTheme.mint)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 24)
                         }
                     }
                 } else {
@@ -1087,6 +1092,13 @@ struct StrengthPlanView: View {
                              : "Stay with your session until you're ready to finish.")
                             .font(.caption)
                             .foregroundStyle(RestFitTheme.faint)
+                    }
+                }
+
+                // Mount only after a set rest — keeps Start Workout light.
+                if restKick > 0 {
+                    WorkoutRestMiniGame(restKick: restKick) {
+                        EmptyView()
                     }
                 }
 
